@@ -1,0 +1,369 @@
+import { useState } from "react";
+import { Minus, Plus, CreditCard, QrCode, Copy, Check, X } from "lucide-react";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
+import type { Event } from "@/types/event";
+
+interface CheckoutDrawerProps {
+  event: Event;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+type PaymentMethod = "card" | "pix";
+type CheckoutStep = "quantity" | "payment" | "processing" | "success";
+
+export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProps) {
+  const [step, setStep] = useState<CheckoutStep>("quantity");
+  const [quantity, setQuantity] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix");
+  const [isGeneratingPix, setIsGeneratingPix] = useState(false);
+  const [pixGenerated, setPixGenerated] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    cpf: "",
+  });
+
+  const subtotal = event.price * quantity;
+  const serviceFee = subtotal * 0.05;
+  const total = subtotal + serviceFee;
+
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+
+  const handleQuantityChange = (delta: number) => {
+    setQuantity((prev) => Math.max(1, Math.min(10, prev + delta)));
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const formatCPF = (value: string) => {
+    const numbers = value.replace(/\D/g, "").slice(0, 11);
+    return numbers
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  };
+
+  const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCPF(e.target.value);
+    setFormData((prev) => ({ ...prev, cpf: formatted }));
+  };
+
+  const isFormValid = formData.name.trim() && formData.email.includes("@") && formData.cpf.length >= 14;
+
+  const handleGeneratePix = async () => {
+    if (!isFormValid) {
+      toast({ title: "Preencha todos os campos", variant: "destructive" });
+      return;
+    }
+    setIsGeneratingPix(true);
+    await new Promise((r) => setTimeout(r, 1500));
+    setIsGeneratingPix(false);
+    setPixGenerated(true);
+  };
+
+  const handleCopyPix = () => {
+    navigator.clipboard.writeText("00020126580014br.gov.bcb.pix0136a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast({ title: "Código PIX copiado!" });
+  };
+
+  const handleConfirmPayment = async () => {
+    setStep("processing");
+    await new Promise((r) => setTimeout(r, 2000));
+    setStep("success");
+  };
+
+  const handleCardPayment = async () => {
+    if (!isFormValid) {
+      toast({ title: "Preencha todos os campos", variant: "destructive" });
+      return;
+    }
+    setStep("processing");
+    await new Promise((r) => setTimeout(r, 2000));
+    setStep("success");
+  };
+
+  const resetAndClose = () => {
+    setStep("quantity");
+    setQuantity(1);
+    setPaymentMethod("pix");
+    setPixGenerated(false);
+    setFormData({ name: "", email: "", cpf: "" });
+    onOpenChange(false);
+  };
+
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="max-h-[90vh]">
+        <div className="mx-auto w-full max-w-md">
+          <DrawerHeader className="text-left relative">
+            <DrawerClose className="absolute right-4 top-4 rounded-full p-2 hover:bg-secondary">
+              <X className="h-5 w-5" />
+            </DrawerClose>
+            <DrawerTitle className="text-xl">
+              {step === "success" ? "Compra Confirmada! 🎉" : "Finalizar Compra"}
+            </DrawerTitle>
+          </DrawerHeader>
+
+          <div className="px-4 pb-6 space-y-5 overflow-y-auto max-h-[70vh]">
+            {step === "success" ? (
+              <div className="text-center py-6 space-y-4">
+                <div className="w-20 h-20 mx-auto rounded-full bg-success/10 flex items-center justify-center">
+                  <Check className="h-10 w-10 text-success" />
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-foreground mb-2">
+                    Seu ingresso foi enviado!
+                  </p>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    Seu acesso foi enviado para <span className="font-medium text-foreground">{formData.email}</span> e sua conta foi criada automaticamente.
+                  </p>
+                  <p className="text-muted-foreground text-sm mt-2">
+                    Use seu e-mail para acessar seus ingressos futuramente.
+                  </p>
+                </div>
+                <Button onClick={resetAndClose} variant="gradient" size="lg" className="w-full mt-4">
+                  Voltar ao evento
+                </Button>
+              </div>
+            ) : step === "processing" ? (
+              <div className="text-center py-12 space-y-4">
+                <div className="w-16 h-16 mx-auto rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                <p className="text-lg font-semibold text-foreground">Processando pagamento...</p>
+              </div>
+            ) : (
+              <>
+                {/* Event Summary */}
+                <div className="flex gap-3 p-3 bg-secondary rounded-xl">
+                  <img
+                    src={event.image}
+                    alt={event.title}
+                    className="w-16 h-16 rounded-lg object-cover"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-foreground text-sm line-clamp-2">{event.title}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">{event.venue}</p>
+                  </div>
+                </div>
+
+                {/* Quantity Selector */}
+                <div className="flex items-center justify-between py-3 border-b border-border">
+                  <span className="font-medium text-foreground">Quantidade</span>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => handleQuantityChange(-1)}
+                      disabled={quantity <= 1}
+                      className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-50 transition-colors"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="text-lg font-bold w-6 text-center">{quantity}</span>
+                    <button
+                      onClick={() => handleQuantityChange(1)}
+                      disabled={quantity >= 10}
+                      className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-50 transition-colors"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Guest Checkout Form */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-foreground">Seus dados</h3>
+                  <div>
+                    <Label htmlFor="name" className="text-sm">Nome completo</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      placeholder="Seu nome"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email" className="text-sm">E-mail</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder="seu@email.com"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cpf" className="text-sm">CPF</Label>
+                    <Input
+                      id="cpf"
+                      name="cpf"
+                      value={formData.cpf}
+                      onChange={handleCPFChange}
+                      placeholder="000.000.000-00"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                {/* Payment Method */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-foreground">Pagamento</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => { setPaymentMethod("pix"); setPixGenerated(false); }}
+                      className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                        paymentMethod === "pix"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <QrCode className={`h-6 w-6 ${paymentMethod === "pix" ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className={`text-sm font-medium ${paymentMethod === "pix" ? "text-primary" : "text-foreground"}`}>
+                        PIX
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setPaymentMethod("card")}
+                      className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                        paymentMethod === "card"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <CreditCard className={`h-6 w-6 ${paymentMethod === "card" ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className={`text-sm font-medium ${paymentMethod === "card" ? "text-primary" : "text-foreground"}`}>
+                        Cartão
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* PIX Payment */}
+                  {paymentMethod === "pix" && (
+                    <div className="space-y-3 pt-2">
+                      {!pixGenerated ? (
+                        <Button
+                          onClick={handleGeneratePix}
+                          variant="outline"
+                          className="w-full"
+                          disabled={isGeneratingPix || !isFormValid}
+                        >
+                          {isGeneratingPix ? (
+                            <>
+                              <span className="h-4 w-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin mr-2" />
+                              Gerando QR Code...
+                            </>
+                          ) : (
+                            "Gerar QR Code PIX"
+                          )}
+                        </Button>
+                      ) : (
+                        <div className="space-y-3 animate-fade-in">
+                          <div className="bg-secondary p-4 rounded-xl flex flex-col items-center">
+                            {/* Simulated QR Code */}
+                            <div className="w-40 h-40 bg-foreground rounded-lg flex items-center justify-center mb-3">
+                              <div className="grid grid-cols-8 gap-0.5 p-2">
+                                {Array.from({ length: 64 }).map((_, i) => (
+                                  <div
+                                    key={i}
+                                    className={`w-3 h-3 ${
+                                      Math.random() > 0.5 ? "bg-background" : "bg-foreground"
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground text-center mb-2">
+                              Escaneie ou copie o código
+                            </p>
+                            <Button
+                              onClick={handleCopyPix}
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                            >
+                              {copied ? (
+                                <>
+                                  <Check className="h-4 w-4 mr-2" />
+                                  Copiado!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-4 w-4 mr-2" />
+                                  Copiar Código PIX
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Price Summary */}
+                <div className="space-y-2 pt-3 border-t border-border">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal ({quantity}x)</span>
+                    <span>{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Taxa de serviço (5%)</span>
+                    <span>{formatCurrency(serviceFee)}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-border">
+                    <span className="font-semibold">Total</span>
+                    <span className="text-xl font-bold text-primary">{formatCurrency(total)}</span>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <div className="pt-2">
+                  {paymentMethod === "pix" ? (
+                    <Button
+                      onClick={handleConfirmPayment}
+                      variant="gradient"
+                      size="lg"
+                      className="w-full"
+                      disabled={!pixGenerated}
+                    >
+                      Confirmar Pagamento PIX
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleCardPayment}
+                      variant="gradient"
+                      size="lg"
+                      className="w-full"
+                      disabled={!isFormValid}
+                    >
+                      Pagar {formatCurrency(total)}
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
