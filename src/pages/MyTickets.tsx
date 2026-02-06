@@ -4,9 +4,12 @@ import { mockTickets } from "@/data/mockEvents";
 import { Ticket } from "lucide-react";
 
 export default function MyTickets() {
+  const validTickets = mockTickets.filter((t) => t.status === "valid");
+  const pastTickets = mockTickets.filter((t) => t.status !== "valid");
+
   return (
     <MainLayout>
-      <div className="container py-6">
+      <div className="container max-w-2xl py-6">
         {/* Header */}
         <section className="mb-8">
           <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
@@ -17,12 +20,35 @@ export default function MyTickets() {
           </p>
         </section>
 
-        {/* Tickets List */}
         {mockTickets.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 stagger-children">
-            {mockTickets.map((ticket) => (
-              <TicketCard key={ticket.id} ticket={ticket} />
-            ))}
+          <div className="space-y-8">
+            {/* Valid Tickets */}
+            {validTickets.length > 0 && (
+              <section>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+                  Próximos eventos
+                </h2>
+                <div className="space-y-3 stagger-children">
+                  {validTickets.map((ticket) => (
+                    <TicketCard key={ticket.id} ticket={ticket} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Past Tickets */}
+            {pastTickets.length > 0 && (
+              <section>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+                  Histórico
+                </h2>
+                <div className="space-y-3 stagger-children">
+                  {pastTickets.map((ticket) => (
+                    <TicketCard key={ticket.id} ticket={ticket} />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         ) : (
           <div className="text-center py-16">

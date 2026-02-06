@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Minus, Plus, CreditCard, QrCode, Copy, Check, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +12,10 @@ interface CheckoutPanelProps {
 }
 
 type PaymentMethod = "card" | "pix";
-type CheckoutStep = "form" | "processing" | "success";
+type CheckoutStep = "form" | "processing";
 
 export function CheckoutPanel({ event }: CheckoutPanelProps) {
+  const navigate = useNavigate();
   const [step, setStep] = useState<CheckoutStep>("form");
   const [quantity, setQuantity] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix");
@@ -57,6 +59,20 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
 
   const isFormValid = formData.name.trim() && formData.email.includes("@") && formData.cpf.length >= 14;
 
+  const generateTransactionId = () => `TXN-${Date.now().toString(36).toUpperCase()}`;
+
+  const navigateToSuccess = () => {
+    const txn = generateTransactionId();
+    const params = new URLSearchParams({
+      eventId: event.id,
+      name: formData.name,
+      email: formData.email,
+      quantity: quantity.toString(),
+      txn,
+    });
+    navigate(`/purchase-success?${params.toString()}`);
+  };
+
   const handleGeneratePix = async () => {
     if (!isFormValid) {
       toast({ title: "Preencha todos os campos", variant: "destructive" });
@@ -78,7 +94,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
   const handleConfirmPayment = async () => {
     setStep("processing");
     await new Promise((r) => setTimeout(r, 2000));
-    setStep("success");
+    navigateToSuccess();
   };
 
   const handleCardPayment = async () => {
@@ -88,7 +104,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     }
     setStep("processing");
     await new Promise((r) => setTimeout(r, 2000));
-    setStep("success");
+    navigateToSuccess();
   };
 
   const resetForm = () => {
@@ -98,28 +114,6 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     setPixGenerated(false);
     setFormData({ name: "", email: "", cpf: "" });
   };
-
-  if (step === "success") {
-    return (
-      <div className="bg-card rounded-2xl shadow-elevated p-6 text-center space-y-4">
-        <div className="w-20 h-20 mx-auto rounded-full bg-success/10 flex items-center justify-center">
-          <Check className="h-10 w-10 text-success" />
-        </div>
-        <div>
-          <h2 className="text-xl font-bold text-foreground mb-2">Compra Confirmada! 🎉</h2>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            Seu acesso foi enviado para <span className="font-medium text-foreground">{formData.email}</span> e sua conta foi criada automaticamente.
-          </p>
-          <p className="text-muted-foreground text-sm mt-2">
-            Use seu e-mail para acessar seus ingressos futuramente.
-          </p>
-        </div>
-        <Button onClick={resetForm} variant="outline" size="lg" className="w-full mt-4">
-          Comprar outro ingresso
-        </Button>
-      </div>
-    );
-  }
 
   if (step === "processing") {
     return (

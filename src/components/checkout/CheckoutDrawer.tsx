@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Minus, Plus, CreditCard, QrCode, Copy, Check, X } from "lucide-react";
 import {
   Drawer,
@@ -20,9 +21,10 @@ interface CheckoutDrawerProps {
 }
 
 type PaymentMethod = "card" | "pix";
-type CheckoutStep = "quantity" | "payment" | "processing" | "success";
+type CheckoutStep = "quantity" | "payment" | "processing";
 
 export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProps) {
+  const navigate = useNavigate();
   const [step, setStep] = useState<CheckoutStep>("quantity");
   const [quantity, setQuantity] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("pix");
@@ -66,6 +68,21 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
 
   const isFormValid = formData.name.trim() && formData.email.includes("@") && formData.cpf.length >= 14;
 
+  const generateTransactionId = () => `TXN-${Date.now().toString(36).toUpperCase()}`;
+
+  const navigateToSuccess = () => {
+    const txn = generateTransactionId();
+    const params = new URLSearchParams({
+      eventId: event.id,
+      name: formData.name,
+      email: formData.email,
+      quantity: quantity.toString(),
+      txn,
+    });
+    onOpenChange(false);
+    navigate(`/purchase-success?${params.toString()}`);
+  };
+
   const handleGeneratePix = async () => {
     if (!isFormValid) {
       toast({ title: "Preencha todos os campos", variant: "destructive" });
@@ -87,7 +104,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
   const handleConfirmPayment = async () => {
     setStep("processing");
     await new Promise((r) => setTimeout(r, 2000));
-    setStep("success");
+    navigateToSuccess();
   };
 
   const handleCardPayment = async () => {
@@ -97,7 +114,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
     }
     setStep("processing");
     await new Promise((r) => setTimeout(r, 2000));
-    setStep("success");
+    navigateToSuccess();
   };
 
   const resetAndClose = () => {
@@ -118,32 +135,12 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
               <X className="h-5 w-5" />
             </DrawerClose>
             <DrawerTitle className="text-xl">
-              {step === "success" ? "Compra Confirmada! 🎉" : "Finalizar Compra"}
+              Finalizar Compra
             </DrawerTitle>
           </DrawerHeader>
 
           <div className="px-4 pb-6 space-y-5 overflow-y-auto max-h-[70vh]">
-            {step === "success" ? (
-              <div className="text-center py-6 space-y-4">
-                <div className="w-20 h-20 mx-auto rounded-full bg-success/10 flex items-center justify-center">
-                  <Check className="h-10 w-10 text-success" />
-                </div>
-                <div>
-                  <p className="text-lg font-semibold text-foreground mb-2">
-                    Seu ingresso foi enviado!
-                  </p>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    Seu acesso foi enviado para <span className="font-medium text-foreground">{formData.email}</span> e sua conta foi criada automaticamente.
-                  </p>
-                  <p className="text-muted-foreground text-sm mt-2">
-                    Use seu e-mail para acessar seus ingressos futuramente.
-                  </p>
-                </div>
-                <Button onClick={resetAndClose} variant="gradient" size="lg" className="w-full mt-4">
-                  Voltar ao evento
-                </Button>
-              </div>
-            ) : step === "processing" ? (
+            {step === "processing" ? (
               <div className="text-center py-12 space-y-4">
                 <div className="w-16 h-16 mx-auto rounded-full border-4 border-primary border-t-transparent animate-spin" />
                 <p className="text-lg font-semibold text-foreground">Processando pagamento...</p>
