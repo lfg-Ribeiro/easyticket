@@ -1,4 +1,4 @@
-import { QrCode, Calendar, MapPin, Check, Clock } from "lucide-react";
+import { QrCode, Calendar, MapPin, Clock, Scissors, ChevronRight } from "lucide-react";
 import { Ticket } from "@/types/event";
 import { cn } from "@/lib/utils";
 
@@ -15,64 +15,79 @@ export function TicketCard({ ticket, className }: TicketCardProps) {
   });
 
   const statusConfig = {
-    valid: { label: "Válido", color: "bg-success text-success-foreground" },
-    used: { label: "Utilizado", color: "bg-muted text-muted-foreground" },
-    expired: { label: "Expirado", color: "bg-destructive/10 text-destructive" },
+    valid: { label: "Disponível", bgClass: "bg-success/10", textClass: "text-success", dotClass: "bg-success" },
+    used: { label: "Utilizado", bgClass: "bg-muted", textClass: "text-muted-foreground", dotClass: "bg-muted-foreground" },
+    expired: { label: "Expirado", bgClass: "bg-destructive/10", textClass: "text-destructive", dotClass: "bg-destructive" },
   };
 
   const status = statusConfig[ticket.status];
 
   return (
-    <article className={cn("bg-card rounded-2xl shadow-card overflow-hidden", className)}>
-      <div className="relative h-32 overflow-hidden">
+    <article
+      className={cn(
+        "bg-card rounded-2xl shadow-card overflow-hidden flex flex-row h-36 hover:shadow-elevated transition-shadow cursor-pointer group",
+        className
+      )}
+    >
+      {/* Left: Event Image */}
+      <div className="relative w-32 flex-shrink-0 overflow-hidden">
         <img
           src={ticket.event.image}
           alt={ticket.event.title}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-        <div className="absolute bottom-3 left-4 right-4">
-          <h3 className="text-white font-bold text-lg leading-tight line-clamp-1">
-            {ticket.event.title}
-          </h3>
-        </div>
-        <div className="absolute top-3 right-3">
-          <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold", status.color)}>
-            {status.label}
-          </span>
-        </div>
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-foreground/5" />
       </div>
 
-      <div className="p-4">
-        <div className="flex gap-4 text-sm text-muted-foreground mb-4">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="h-4 w-4" />
-            <span>{formattedDate}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-4 w-4" />
-            <span>{ticket.event.time}</span>
+      {/* Dashed vertical separator with cutouts */}
+      <div className="relative flex flex-col items-center justify-center w-0">
+        <div className="absolute -top-4 w-8 h-8 rounded-full bg-background z-10" />
+        <div className="h-full border-l-2 border-dashed border-border" />
+        <div className="absolute -bottom-4 w-8 h-8 rounded-full bg-background z-10" />
+      </div>
+
+      {/* Right: Info */}
+      <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
+        <div>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-bold text-foreground text-sm leading-tight line-clamp-2 flex-1">
+              {ticket.event.title}
+            </h3>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0",
+                status.bgClass,
+                status.textClass
+              )}
+            >
+              <span className={cn("w-1.5 h-1.5 rounded-full", status.dotClass)} />
+              {status.label}
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
-          <MapPin className="h-4 w-4 flex-shrink-0" />
-          <span className="line-clamp-1">{ticket.event.venue}</span>
-        </div>
-
-        <div className="border-t border-dashed border-border pt-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Quantidade</p>
-              <p className="font-semibold">{ticket.quantity} ingresso{ticket.quantity > 1 ? 's' : ''}</p>
+        <div className="space-y-1.5 mt-2">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              <span>{formattedDate}</span>
             </div>
-            <div className="w-20 h-20 bg-secondary rounded-xl flex items-center justify-center">
-              <QrCode className="h-12 w-12 text-foreground" />
+            <div className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              <span>{ticket.event.time}</span>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-3 text-center">
-            Código: {ticket.qrCode}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{ticket.event.venue}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-xs text-muted-foreground">
+            {ticket.quantity} ingresso{ticket.quantity > 1 ? "s" : ""}
           </p>
+          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
         </div>
       </div>
     </article>
