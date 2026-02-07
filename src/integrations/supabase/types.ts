@@ -14,16 +14,279 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      events: {
+        Row: {
+          category: string
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          event_date: string
+          event_time: string
+          fee_absorbed: boolean
+          id: string
+          location: string
+          organizer_id: string
+          published: boolean
+          title: string
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          category?: string
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          event_date: string
+          event_time: string
+          fee_absorbed?: boolean
+          id?: string
+          location: string
+          organizer_id: string
+          published?: boolean
+          title: string
+          updated_at?: string
+          venue: string
+        }
+        Update: {
+          category?: string
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          event_time?: string
+          fee_absorbed?: boolean
+          id?: string
+          location?: string
+          organizer_id?: string
+          published?: boolean
+          title?: string
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          buyer_cpf: string | null
+          buyer_email: string
+          buyer_name: string
+          created_at: string
+          event_id: string
+          id: string
+          payment_method: string
+          payment_status: string
+          quantity: number
+          service_fee: number
+          subtotal: number
+          total_amount: number
+          transaction_id: string | null
+        }
+        Insert: {
+          buyer_cpf?: string | null
+          buyer_email: string
+          buyer_name: string
+          created_at?: string
+          event_id: string
+          id?: string
+          payment_method?: string
+          payment_status?: string
+          quantity?: number
+          service_fee?: number
+          subtotal?: number
+          total_amount?: number
+          transaction_id?: string | null
+        }
+        Update: {
+          buyer_cpf?: string | null
+          buyer_email?: string
+          buyer_name?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          payment_method?: string
+          payment_status?: string
+          quantity?: number
+          service_fee?: number
+          subtotal?: number
+          total_amount?: number
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          auth_id: string
+          cpf: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          auth_id: string
+          cpf?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          auth_id?: string
+          cpf?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ticket_batches: {
+        Row: {
+          available_quantity: number
+          created_at: string
+          event_id: string
+          id: string
+          name: string
+          price: number
+          total_quantity: number
+        }
+        Insert: {
+          available_quantity?: number
+          created_at?: string
+          event_id: string
+          id?: string
+          name: string
+          price?: number
+          total_quantity?: number
+        }
+        Update: {
+          available_quantity?: number
+          created_at?: string
+          event_id?: string
+          id?: string
+          name?: string
+          price?: number
+          total_quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_batches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          batch_id: string | null
+          check_in_status: string
+          checked_in_at: string | null
+          created_at: string
+          event_id: string
+          holder_email: string
+          holder_name: string
+          id: string
+          order_id: string
+          qr_code: string
+        }
+        Insert: {
+          batch_id?: string | null
+          check_in_status?: string
+          checked_in_at?: string | null
+          created_at?: string
+          event_id: string
+          holder_email: string
+          holder_name: string
+          id?: string
+          order_id: string
+          qr_code: string
+        }
+        Update: {
+          batch_id?: string | null
+          check_in_status?: string
+          checked_in_at?: string | null
+          created_at?: string
+          event_id?: string
+          holder_email?: string
+          holder_name?: string
+          id?: string
+          order_id?: string
+          qr_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_event_organizer: { Args: { _event_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "organizer" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +413,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["organizer", "user"],
+    },
   },
 } as const

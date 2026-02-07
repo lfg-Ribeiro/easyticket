@@ -11,6 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface TicketBatch {
   id: string;
@@ -22,6 +25,7 @@ interface TicketBatch {
 interface CreateEventFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onEventCreated?: () => void;
 }
 
 const steps = [
@@ -30,12 +34,38 @@ const steps = [
   { id: 3, label: "Taxas", icon: Settings },
 ];
 
-export function CreateEventForm({ open, onOpenChange }: CreateEventFormProps) {
+export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEventFormProps) {
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [feeAbsorbed, setFeeAbsorbed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [batches, setBatches] = useState<TicketBatch[]>([
     { id: "1", name: "Lote 1", price: "", quantity: "" },
   ]);
+  const [formData, setFormData] = useState({
+    title: "",
+    date: "",
+    time: "",
+    location: "",
+    description: "",
+    category: "Outros",
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    const field = id.replace("event-", "");
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCoverFile(file);
+      setCoverPreview(URL.createObjectURL(file));
+    }
+  };
 
   const addBatch = () => {
     setBatches((prev) => [
@@ -56,9 +86,101 @@ export function CreateEventForm({ open, onOpenChange }: CreateEventFormProps) {
     );
   };
 
-  const handleSubmit = () => {
-    onOpenChange(false);
+  const resetForm = () => {
     setCurrentStep(1);
+    setFeeAbsorbed(false);
+    setCoverFile(null);
+    setCoverPreview(null);
+    setBatches([{ id: "1", name: "Lote 1", price: "", quantity: "" }]);
+    setFormData({ title: "", date: "", time: "", location: "", description: "", category: "Outros" });
+  };
+
+  const handleSubmit = async () => {
+    if (!user) {
+      toast({ title: "Faça login para criar eventos", variant: "destructive" });
+      return;
+    }
+
+    if (!formData.title || !formData.date || !formData.time || !formData.location) {
+      toast({ title: "Preencha as informações básicas", variant: "destructive" });
+      setCurrentStep(1);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Upload cover image if provided
+      let coverImageUrl: string | null = null;
+      if (coverFile) {
+        const fileExt = coverFile.name.split(".").pop();
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from("event-covers")
+          .upload(fileName, coverFile);
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from("event-covers")
+            .getPublicUrl(fileName);
+          coverImageUrl = urlData.publicUrl;
+        }
+      }
+
+      // Create event
+      const { data: event, error: eventError } = await supabase
+        .from("events")
+        .insert({
+          organizer_id: user.id,
+          title: formData.title,
+          description: formData.description || null,
+          event_date: formData.date,
+          event_time: formData.time,
+          location: formData.location,
+          venue: formData.location.split(",")[0]?.trim() || formData.location,
+          category: formData.category,
+          cover_image_url: coverImageUrl,
+          fee_absorbed: feeAbsorbed,
+          published: true,
+        })
+        .select()
+        .single();
+
+      if (eventError) {
+        console.error("Event error:", eventError);
+        toast({ title: "Erro ao criar evento", description: eventError.message, variant: "destructive" });
+        return;
+      }
+
+      // Create ticket batches
+      const validBatches = batches.filter((b) => b.price && b.quantity);
+      if (validBatches.length > 0) {
+        const batchData = validBatches.map((b) => ({
+          event_id: event.id,
+          name: b.name,
+          price: parseFloat(b.price),
+          total_quantity: parseInt(b.quantity),
+          available_quantity: parseInt(b.quantity),
+        }));
+
+        const { error: batchError } = await supabase
+          .from("ticket_batches")
+          .insert(batchData);
+
+        if (batchError) {
+          console.error("Batch error:", batchError);
+        }
+      }
+
+      toast({ title: "Evento criado com sucesso! 🎉" });
+      resetForm();
+      onOpenChange(false);
+      onEventCreated?.();
+    } catch (err) {
+      console.error("Submit error:", err);
+      toast({ title: "Erro inesperado ao criar evento", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -106,10 +228,15 @@ export function CreateEventForm({ open, onOpenChange }: CreateEventFormProps) {
         {currentStep === 1 && (
           <div className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="event-name" className="text-sm font-semibold">
+              <Label htmlFor="event-title" className="text-sm font-semibold">
                 Nome do Evento
               </Label>
-              <Input id="event-name" placeholder="Ex: Festival de Verão 2025" />
+              <Input
+                id="event-title"
+                value={formData.title}
+                onChange={handleInputChange}
+                placeholder="Ex: Festival de Verão 2025"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -117,13 +244,23 @@ export function CreateEventForm({ open, onOpenChange }: CreateEventFormProps) {
                 <Label htmlFor="event-date" className="text-sm font-semibold">
                   Data
                 </Label>
-                <Input id="event-date" type="date" />
+                <Input
+                  id="event-date"
+                  type="date"
+                  value={formData.date}
+                  onChange={handleInputChange}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="event-time" className="text-sm font-semibold">
                   Horário
                 </Label>
-                <Input id="event-time" type="time" />
+                <Input
+                  id="event-time"
+                  type="time"
+                  value={formData.time}
+                  onChange={handleInputChange}
+                />
               </div>
             </div>
 
@@ -132,7 +269,12 @@ export function CreateEventForm({ open, onOpenChange }: CreateEventFormProps) {
                 <MapPin className="h-4 w-4 inline mr-1" />
                 Local
               </Label>
-              <Input id="event-location" placeholder="Ex: Parque Ibirapuera, São Paulo" />
+              <Input
+                id="event-location"
+                value={formData.location}
+                onChange={handleInputChange}
+                placeholder="Ex: Parque Ibirapuera, São Paulo"
+              />
             </div>
 
             <div className="space-y-2">
@@ -141,6 +283,8 @@ export function CreateEventForm({ open, onOpenChange }: CreateEventFormProps) {
               </Label>
               <Textarea
                 id="event-description"
+                value={formData.description}
+                onChange={handleInputChange}
                 placeholder="Descreva seu evento..."
                 rows={3}
               />
@@ -151,15 +295,34 @@ export function CreateEventForm({ open, onOpenChange }: CreateEventFormProps) {
                 <Image className="h-4 w-4 inline mr-1" />
                 Imagem de Capa
               </Label>
-              <div className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/40 transition-colors">
-                <Image className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Clique para selecionar ou arraste uma imagem
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG até 5MB
-                </p>
-              </div>
+              <label className="block">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCoverChange}
+                  className="hidden"
+                />
+                {coverPreview ? (
+                  <div className="relative rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
+                    <img src={coverPreview} alt="Cover preview" className="w-full h-40 object-cover" />
+                    <div className="absolute inset-0 bg-foreground/10 flex items-center justify-center">
+                      <span className="text-sm text-primary-foreground bg-foreground/50 px-3 py-1 rounded-full">
+                        Alterar imagem
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/40 transition-colors">
+                    <Image className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      Clique para selecionar uma imagem
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      PNG, JPG até 5MB
+                    </p>
+                  </div>
+                )}
+              </label>
             </div>
 
             <Button
@@ -328,9 +491,16 @@ export function CreateEventForm({ open, onOpenChange }: CreateEventFormProps) {
                 variant="gradient"
                 className="flex-1"
                 onClick={handleSubmit}
+                disabled={submitting}
               >
-                <Check className="h-4 w-4 mr-2" />
-                Criar Evento
+                {submitting ? (
+                  <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Criar Evento
+                  </>
+                )}
               </Button>
             </div>
           </div>

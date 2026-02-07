@@ -1,23 +1,75 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Search } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { EventCard } from "@/components/events/EventCard";
 import { CategoryFilter } from "@/components/events/CategoryFilter";
 import { mockEvents, categories } from "@/data/mockEvents";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import type { Event } from "@/types/event";
 
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
+  const [dbEvents, setDbEvents] = useState<Event[]>([]);
+
+  // Fetch real events from database
+  useEffect(() => {
+    const fetchEvents = async () => {
+      const { data } = await supabase
+        .from("events")
+        .select(`
+          id,
+          title,
+          description,
+          event_date,
+          event_time,
+          location,
+          venue,
+          cover_image_url,
+          category,
+          fee_absorbed
+        `)
+        .eq("published", true)
+        .order("event_date", { ascending: true });
+
+      if (data) {
+        const mapped: Event[] = data.map((e: any) => ({
+          id: e.id,
+          title: e.title,
+          description: e.description || "",
+          date: e.event_date,
+          time: e.event_time,
+          location: e.location,
+          venue: e.venue,
+          image: e.cover_image_url || "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop",
+          price: 0,
+          category: e.category,
+          availableTickets: 0,
+          organizer: "",
+        }));
+        setDbEvents(mapped);
+      }
+    };
+
+    fetchEvents();
+  }, []);
+
+  // Combine mock events + DB events (DB first)
+  const allEvents = useMemo(() => {
+    const mockIds = new Set(mockEvents.map((e) => e.id));
+    const dbFiltered = dbEvents.filter((e) => !mockIds.has(e.id));
+    return [...dbFiltered, ...mockEvents];
+  }, [dbEvents]);
 
   const filteredEvents = useMemo(() => {
-    return mockEvents.filter((event) => {
+    return allEvents.filter((event) => {
       const matchesCategory = selectedCategory === "Todos" || event.category === selectedCategory;
       const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.location.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, allEvents]);
 
   return (
     <MainLayout>
