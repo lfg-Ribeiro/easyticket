@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import type { Event } from "@/types/event";
 
 interface CheckoutPanelProps {
@@ -59,10 +60,26 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
 
   const isFormValid = formData.name.trim() && formData.email.includes("@") && formData.cpf.length >= 14;
 
-  const generateTransactionId = () => `TXN-${Date.now().toString(36).toUpperCase()}`;
+  const createCheckout = async () => {
+    const { data, error } = await supabase.functions.invoke("create-checkout", {
+      body: {
+        event_id: event.id,
+        buyer_name: formData.name,
+        buyer_email: formData.email,
+        buyer_cpf: formData.cpf,
+        quantity,
+        payment_method: paymentMethod,
+      },
+    });
 
-  const navigateToSuccess = () => {
-    const txn = generateTransactionId();
+    if (error) {
+      throw new Error("Checkout failed");
+    }
+
+    return data;
+  };
+
+  const navigateToSuccess = (txn: string) => {
     const params = new URLSearchParams({
       eventId: event.id,
       name: formData.name,
@@ -93,8 +110,13 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
 
   const handleConfirmPayment = async () => {
     setStep("processing");
-    await new Promise((r) => setTimeout(r, 2000));
-    navigateToSuccess();
+    try {
+      const result = await createCheckout();
+      navigateToSuccess(result.transaction_id);
+    } catch {
+      setStep("form");
+      toast({ title: "Erro ao processar pagamento", variant: "destructive" });
+    }
   };
 
   const handleCardPayment = async () => {
@@ -103,16 +125,13 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       return;
     }
     setStep("processing");
-    await new Promise((r) => setTimeout(r, 2000));
-    navigateToSuccess();
-  };
-
-  const resetForm = () => {
-    setStep("form");
-    setQuantity(1);
-    setPaymentMethod("pix");
-    setPixGenerated(false);
-    setFormData({ name: "", email: "", cpf: "" });
+    try {
+      const result = await createCheckout();
+      navigateToSuccess(result.transaction_id);
+    } catch {
+      setStep("form");
+      toast({ title: "Erro ao processar pagamento", variant: "destructive" });
+    }
   };
 
   if (step === "processing") {
@@ -256,7 +275,6 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
             ) : (
               <div className="space-y-3 animate-fade-in">
                 <div className="bg-secondary p-4 rounded-xl flex flex-col items-center">
-                  {/* Simulated QR Code */}
                   <div className="w-32 h-32 bg-foreground rounded-lg flex items-center justify-center mb-3">
                     <div className="grid grid-cols-8 gap-0.5 p-1">
                       {Array.from({ length: 64 }).map((_, i) => (

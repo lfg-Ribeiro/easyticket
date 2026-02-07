@@ -1,7 +1,8 @@
-import { Link, useLocation } from "react-router-dom";
-import { Ticket } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Ticket, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const navLinks = [
   { to: "/", label: "Eventos" },
@@ -11,6 +12,13 @@ const navLinks = [
 
 export function Header() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 hidden md:block border-b border-border bg-background/95 backdrop-blur-lg">
@@ -44,11 +52,24 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link to="/profile">
-            <Button variant="outline" size="sm">
-              Minha Conta
-            </Button>
-          </Link>
+          {user ? (
+            <>
+              <Link to="/profile">
+                <Button variant="outline" size="sm">
+                  {user.email?.split("@")[0] || "Minha Conta"}
+                </Button>
+              </Link>
+              <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </>
+          ) : (
+            <Link to="/auth">
+              <Button variant="outline" size="sm">
+                Entrar
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </header>

@@ -1,42 +1,47 @@
+import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { User, Settings, HelpCircle, LogOut, ChevronRight, Bell } from "lucide-react";
-
-const menuItems = [
-  { icon: User, label: "Editar perfil", action: () => {} },
-  { icon: Bell, label: "Notificações", action: () => {} },
-  { icon: Settings, label: "Configurações", action: () => {} },
-  { icon: HelpCircle, label: "Ajuda e suporte", action: () => {} },
-];
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Profile() {
+  const navigate = useNavigate();
+  const { user, signOut, loading } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
+
+  const menuItems = [
+    { icon: User, label: "Editar perfil", action: () => {} },
+    { icon: Bell, label: "Notificações", action: () => {} },
+    { icon: Settings, label: "Configurações", action: () => {} },
+    { icon: HelpCircle, label: "Ajuda e suporte", action: () => {} },
+  ];
+
+  const initials = user?.user_metadata?.full_name
+    ? user.user_metadata.full_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+    : user?.email?.slice(0, 2).toUpperCase() || "??";
+
+  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Visitante";
+  const displayEmail = user?.email || "";
+
   return (
     <MainLayout>
       <div className="container py-6 max-w-lg">
         {/* Profile Header */}
         <section className="text-center mb-8">
           <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
-            <span className="text-3xl font-bold text-primary-foreground">JD</span>
+            <span className="text-3xl font-bold text-primary-foreground">{initials}</span>
           </div>
-          <h1 className="text-xl font-bold text-foreground">João da Silva</h1>
-          <p className="text-muted-foreground">joao.silva@email.com</p>
-        </section>
-
-        {/* Stats */}
-        <section className="grid grid-cols-2 gap-4 mb-8">
-          <div className="bg-card rounded-2xl shadow-card p-4 text-center">
-            <p className="text-3xl font-bold text-primary">3</p>
-            <p className="text-sm text-muted-foreground">Eventos</p>
-          </div>
-          <div className="bg-card rounded-2xl shadow-card p-4 text-center">
-            <p className="text-3xl font-bold text-primary">5</p>
-            <p className="text-sm text-muted-foreground">Ingressos</p>
-          </div>
+          <h1 className="text-xl font-bold text-foreground">{displayName}</h1>
+          <p className="text-muted-foreground">{displayEmail}</p>
         </section>
 
         {/* Menu */}
         <section className="bg-card rounded-2xl shadow-card overflow-hidden mb-8">
-          {menuItems.map((item, index) => (
+          {menuItems.map((item) => (
             <button
               key={item.label}
               onClick={item.action}
@@ -54,10 +59,16 @@ export default function Profile() {
         </section>
 
         {/* Logout */}
-        <Button variant="outline" className="w-full" size="lg">
-          <LogOut className="h-5 w-5 mr-2" />
-          Sair da conta
-        </Button>
+        {user ? (
+          <Button variant="outline" className="w-full" size="lg" onClick={handleSignOut}>
+            <LogOut className="h-5 w-5 mr-2" />
+            Sair da conta
+          </Button>
+        ) : (
+          <Button variant="gradient" className="w-full" size="lg" onClick={() => navigate("/auth")}>
+            Entrar na conta
+          </Button>
+        )}
       </div>
     </MainLayout>
   );
