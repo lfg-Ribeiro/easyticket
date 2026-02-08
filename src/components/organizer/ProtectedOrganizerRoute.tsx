@@ -1,20 +1,33 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
 
 interface ProtectedOrganizerRouteProps {
   children: React.ReactNode;
 }
 
 export function ProtectedOrganizerRoute({ children }: ProtectedOrganizerRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, isOrganizer } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+
+    if (!user) {
       navigate("/auth", { replace: true });
+      return;
     }
-  }, [user, loading, navigate]);
+
+    if (!isOrganizer) {
+      toast({
+        title: "Acesso Negado",
+        description: "Você não tem permissão para acessar o painel do organizador.",
+        variant: "destructive",
+      });
+      navigate("/", { replace: true });
+    }
+  }, [user, loading, isOrganizer, navigate]);
 
   if (loading) {
     return (
@@ -24,7 +37,7 @@ export function ProtectedOrganizerRoute({ children }: ProtectedOrganizerRoutePro
     );
   }
 
-  if (!user) return null;
+  if (!user || !isOrganizer) return null;
 
   return <>{children}</>;
 }

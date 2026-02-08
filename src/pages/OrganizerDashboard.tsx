@@ -83,24 +83,7 @@ export default function OrganizerDashboard() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Auto-assign organizer role on first visit
-  useEffect(() => {
-    const assignOrganizerRole = async () => {
-      if (!user || isOrganizer) return;
-
-      const { error } = await supabase
-        .from("user_roles")
-        .insert({ user_id: user.id, role: "organizer" as any });
-
-      if (!error) {
-        toast({ title: "Bem-vindo ao Painel do Organizador! 🎉" });
-        // Force re-check
-        window.location.reload();
-      }
-    };
-
-    assignOrganizerRole();
-  }, [user, isOrganizer]);
+  // Removed auto-assign organizer role - now managed by RBAC
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);

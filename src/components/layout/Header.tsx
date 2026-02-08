@@ -3,17 +3,23 @@ import { Ticket, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-
-const navLinks = [
-  { to: "/", label: "Eventos" },
-  { to: "/tickets", label: "Meus Ingressos" },
-  { to: "/organizer", label: "Organizador" },
-];
+import { useMemo } from "react";
 
 export function Header() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isOrganizer } = useAuth();
+
+  const navLinks = useMemo(() => {
+    const links = [
+      { to: "/", label: "Eventos" },
+      { to: "/tickets", label: "Meus Ingressos" },
+    ];
+    if (isOrganizer) {
+      links.push({ to: "/organizer", label: "Organizador" });
+    }
+    return links;
+  }, [isOrganizer]);
 
   const handleSignOut = async () => {
     await signOut();
