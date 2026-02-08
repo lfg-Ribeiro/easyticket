@@ -6,8 +6,10 @@ import { User, Settings, HelpCircle, LogOut, ChevronRight, Bell } from "lucide-r
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { ProfileCompletionCard } from "@/components/profile/ProfileCompletionCard";
+import { EditProfileDrawer } from "@/components/profile/EditProfileDrawer";
 
 interface ProfileData {
+  full_name: string | null;
   phone: string | null;
   cpf: string | null;
 }
@@ -16,12 +18,13 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user, signOut, loading } = useAuth();
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   const fetchProfile = async () => {
     if (!user) return;
     const { data } = await supabase
       .from("profiles")
-      .select("phone, cpf")
+      .select("full_name, phone, cpf")
       .eq("auth_id", user.id)
       .maybeSingle();
     if (data) setProfileData(data);
@@ -37,7 +40,7 @@ export default function Profile() {
   };
 
   const menuItems = [
-    { icon: User, label: "Editar perfil", action: () => {} },
+    { icon: User, label: "Editar perfil", action: () => setEditOpen(true) },
     { icon: Bell, label: "Notificações", action: () => {} },
     { icon: Settings, label: "Configurações", action: () => {} },
     { icon: HelpCircle, label: "Ajuda e suporte", action: () => {} },
@@ -105,6 +108,19 @@ export default function Profile() {
           </Button>
         )}
       </div>
+
+      {/* Edit Profile Drawer */}
+      {user && profileData && (
+        <EditProfileDrawer
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          authId={user.id}
+          currentName={profileData.full_name}
+          currentPhone={profileData.phone}
+          currentCpf={profileData.cpf}
+          onSaved={fetchProfile}
+        />
+      )}
     </MainLayout>
   );
 }
