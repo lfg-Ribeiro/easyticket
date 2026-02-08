@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, XCircle, AlertTriangle, Flashlight, FlashlightOff } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useScannerAudio } from "@/hooks/useScannerAudio";
 
 type ScanResult = {
   status: "valid" | "used" | "invalid";
@@ -23,8 +24,11 @@ export default function OrganizerScan() {
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<ScanResult>(null);
   const [validating, setValidating] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchAvailable, setTorchAvailable] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { playSuccess, playError } = useScannerAudio();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -51,6 +55,16 @@ export default function OrganizerScan() {
         () => {}
       );
       setScanning(true);
+
+      // Check if torch is available
+      try {
+        const capabilities = scanner.getRunningTrackCameraCapabilities();
+        if (capabilities.torchFeature().isSupported()) {
+          setTorchAvailable(true);
+        }
+      } catch {
+        // Torch not available
+      }
     } catch (err) {
       console.error("Camera error:", err);
     }
@@ -65,8 +79,25 @@ export default function OrganizerScan() {
       }
       scannerRef.current = null;
       setScanning(false);
+      setTorchOn(false);
+      setTorchAvailable(false);
     }
   }, []);
+
+  const toggleTorch = useCallback(async () => {
+    if (!scannerRef.current) return;
+    try {
+      const capabilities = scannerRef.current.getRunningTrackCameraCapabilities();
+      const torch = capabilities.torchFeature();
+      if (torch.isSupported()) {
+        const newState = !torchOn;
+        await torch.apply(newState);
+        setTorchOn(newState);
+      }
+    } catch {
+      // ignore
+    }
+  }, [torchOn]);
 
   useEffect(() => {
     return () => {
@@ -85,15 +116,23 @@ export default function OrganizerScan() {
       });
 
       if (error) {
+        await playError();
         setResult({
           status: "invalid",
           message: "Erro na validação",
           description: "Não foi possível validar este ingresso.",
         });
       } else {
-        setResult(data as ScanResult);
+        const scanResult = data as NonNullable<ScanResult>;
+        if (scanResult.status === "valid") {
+          await playSuccess();
+        } else {
+          await playError();
+        }
+        setResult(scanResult);
       }
     } catch {
+      await playError();
       setResult({
         status: "invalid",
         message: "Erro de conexão",
@@ -141,7 +180,18 @@ export default function OrganizerScan() {
           <button onClick={() => navigate("/organizer")} className="p-2 -ml-2 hover:bg-secondary rounded-lg">
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-lg font-bold">Validador de Ingressos</h1>
+          <h1 className="text-lg font-bold flex-1">Validador de Ingressos</h1>
+          {scanning && torchAvailable && (
+            <button
+              onClick={toggleTorch}
+              className={`p-2 rounded-lg transition-colors ${
+                torchOn ? "bg-primary text-primary-foreground" : "hover:bg-secondary text-muted-foreground"
+              }`}
+              aria-label={torchOn ? "Desligar lanterna" : "Ligar lanterna"}
+            >
+              {torchOn ? <Flashlight className="h-5 w-5" /> : <FlashlightOff className="h-5 w-5" />}
+            </button>
+          )}
         </div>
       </header>
 
@@ -177,6 +227,13 @@ export default function OrganizerScan() {
                 </div>
               )}
             </div>
+
+            {/* Torch hint */}
+            {scanning && torchAvailable && (
+              <p className="text-center text-xs text-muted-foreground">
+                💡 Use o botão de lanterna no topo para ambientes escuros
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-6 animate-fade-up">

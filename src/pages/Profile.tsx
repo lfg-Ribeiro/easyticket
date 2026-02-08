@@ -1,12 +1,35 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { User, Settings, HelpCircle, LogOut, ChevronRight, Bell } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { ProfileCompletionCard } from "@/components/profile/ProfileCompletionCard";
+
+interface ProfileData {
+  phone: string | null;
+  cpf: string | null;
+}
 
 export default function Profile() {
   const navigate = useNavigate();
   const { user, signOut, loading } = useAuth();
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+
+  const fetchProfile = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("phone, cpf")
+      .eq("auth_id", user.id)
+      .maybeSingle();
+    if (data) setProfileData(data);
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, [user]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -38,6 +61,18 @@ export default function Profile() {
           <h1 className="text-xl font-bold text-foreground">{displayName}</h1>
           <p className="text-muted-foreground">{displayEmail}</p>
         </section>
+
+        {/* Profile Completion */}
+        {user && profileData && (
+          <section className="mb-8">
+            <ProfileCompletionCard
+              authId={user.id}
+              currentPhone={profileData.phone}
+              currentCpf={profileData.cpf}
+              onComplete={fetchProfile}
+            />
+          </section>
+        )}
 
         {/* Menu */}
         <section className="bg-card rounded-2xl shadow-card overflow-hidden mb-8">
