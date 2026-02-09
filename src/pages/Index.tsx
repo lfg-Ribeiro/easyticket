@@ -3,7 +3,7 @@ import { Search } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { EventCard } from "@/components/events/EventCard";
 import { CategoryFilter } from "@/components/events/CategoryFilter";
-import { mockEvents, categories } from "@/data/mockEvents";
+import { categories } from "@/data/mockEvents";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import type { Event } from "@/types/event";
@@ -11,11 +11,12 @@ import type { Event } from "@/types/event";
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
-  const [dbEvents, setDbEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch real events from database
   useEffect(() => {
     const fetchEvents = async () => {
+      setLoading(true);
       const { data } = await supabase
         .from("events")
         .select(`
@@ -28,53 +29,55 @@ const Index = () => {
           venue,
           cover_image_url,
           category,
-          fee_absorbed
+          fee_absorbed,
+          ticket_batches (price, available_quantity)
         `)
         .eq("published", true)
         .order("event_date", { ascending: true });
 
       if (data) {
-        const mapped: Event[] = data.map((e: any) => ({
-          id: e.id,
-          title: e.title,
-          description: e.description || "",
-          date: e.event_date,
-          time: e.event_time,
-          location: e.location,
-          venue: e.venue,
-          image: e.cover_image_url || "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop",
-          price: 0,
-          category: e.category,
-          availableTickets: 0,
-          organizer: "",
-        }));
-        setDbEvents(mapped);
+        const mapped: Event[] = data.map((e: any) => {
+          const batches = e.ticket_batches || [];
+          const cheapest = batches.length > 0
+            ? Math.min(...batches.map((b: any) => Number(b.price)))
+            : 0;
+          const totalAvailable = batches.reduce((sum: number, b: any) => sum + (b.available_quantity || 0), 0);
+
+          return {
+            id: e.id,
+            title: e.title,
+            description: e.description || "",
+            date: e.event_date,
+            time: e.event_time,
+            location: e.location,
+            venue: e.venue,
+            image: e.cover_image_url || "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop",
+            price: cheapest,
+            category: e.category,
+            availableTickets: totalAvailable,
+            organizer: "",
+          };
+        });
+        setEvents(mapped);
       }
+      setLoading(false);
     };
 
     fetchEvents();
   }, []);
 
-  // Combine mock events + DB events (DB first)
-  const allEvents = useMemo(() => {
-    const mockIds = new Set(mockEvents.map((e) => e.id));
-    const dbFiltered = dbEvents.filter((e) => !mockIds.has(e.id));
-    return [...dbFiltered, ...mockEvents];
-  }, [dbEvents]);
-
   const filteredEvents = useMemo(() => {
-    return allEvents.filter((event) => {
+    return events.filter((event) => {
       const matchesCategory = selectedCategory === "Todos" || event.category === selectedCategory;
       const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.location.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [selectedCategory, searchQuery, allEvents]);
+  }, [selectedCategory, searchQuery, events]);
 
   return (
     <MainLayout>
       <div className="container py-6">
-        {/* Hero Section */}
         <section className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
             Descubra eventos
@@ -84,7 +87,6 @@ const Index = () => {
           </p>
         </section>
 
-        {/* Search */}
         <section className="mb-6">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -98,7 +100,6 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Categories */}
         <section className="mb-8">
           <CategoryFilter
             categories={categories}
@@ -107,7 +108,6 @@ const Index = () => {
           />
         </section>
 
-        {/* Events Grid */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-foreground">
@@ -118,7 +118,13 @@ const Index = () => {
             </span>
           </div>
 
-          {filteredEvents.length > 0 ? (
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-card rounded-2xl h-72 animate-pulse" />
+              ))}
+            </div>
+          ) : filteredEvents.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 stagger-children">
               {filteredEvents.map((event) => (
                 <EventCard key={event.id} event={event} />

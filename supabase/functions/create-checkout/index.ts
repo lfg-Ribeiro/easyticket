@@ -57,6 +57,19 @@ serve(async (req) => {
         }
         batchPrice = Number(batch.price);
       }
+    } else {
+      // If no batch_id, get cheapest available batch
+      const { data: batches } = await supabaseAdmin
+        .from("ticket_batches")
+        .select("*")
+        .eq("event_id", event_id)
+        .gt("available_quantity", 0)
+        .order("price", { ascending: true })
+        .limit(1);
+
+      if (batches && batches.length > 0) {
+        batchPrice = Number(batches[0].price);
+      }
     }
 
     const subtotal = batchPrice * quantity;
@@ -136,11 +149,73 @@ serve(async (req) => {
       }
     }
 
+    // Email simulation (Resend-ready)
+    let emailSent = false;
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+
+    const emailData = {
+      to: buyer_email,
+      subject: `Seu ingresso chegou! - ${event.title}`,
+      eventTitle: event.title,
+      eventDate: event.event_date,
+      eventTime: event.event_time,
+      eventVenue: event.venue,
+      eventLocation: event.location,
+      holderName: buyer_name,
+      quantity,
+      transactionId,
+      ticketIds: createdTickets?.map((t: any) => t.id) || [],
+    };
+
+    if (resendApiKey) {
+      try {
+        const { default: { Resend } } = await import("npm:resend@2.0.0");
+        const resend = new Resend(resendApiKey);
+
+        const ticketLinks = emailData.ticketIds
+          .map((id: string) => `https://easyticket.com/ticket/${id}`)
+          .join("\n");
+
+        await resend.emails.send({
+          from: "EasyTicket <noreply@easyticket.com>",
+          to: [buyer_email],
+          subject: emailData.subject,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+              <h1 style="color: #2563eb;">Seu ingresso chegou! 🎉</h1>
+              <p>Olá <strong>${buyer_name}</strong>,</p>
+              <p>Sua compra para <strong>${event.title}</strong> foi confirmada!</p>
+              <div style="background: #f1f5f9; padding: 16px; border-radius: 12px; margin: 16px 0;">
+                <p><strong>📅 Data:</strong> ${event.event_date} às ${event.event_time}</p>
+                <p><strong>📍 Local:</strong> ${event.venue}, ${event.location}</p>
+                <p><strong>🎫 Quantidade:</strong> ${quantity} ingresso(s)</p>
+                <p><strong>🆔 Transação:</strong> ${transactionId}</p>
+              </div>
+              <p>Acesse seus ingressos e QR Codes:</p>
+              <a href="https://easyticket.com/tickets" 
+                 style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                Ver Meus Ingressos
+              </a>
+            </div>
+          `,
+        });
+        emailSent = true;
+        console.log("Email sent successfully to:", buyer_email);
+      } catch (emailErr) {
+        console.error("Email send error:", emailErr);
+      }
+    } else {
+      console.log("📧 [MOCK EMAIL] RESEND_API_KEY not configured. Email would be sent:");
+      console.log(JSON.stringify(emailData, null, 2));
+    }
+
     return new Response(
       JSON.stringify({
         order,
         tickets: createdTickets,
         transaction_id: transactionId,
+        email_sent: emailSent,
+        email_data: emailData,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
