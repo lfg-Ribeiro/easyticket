@@ -108,11 +108,24 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     toast({ title: "Código PIX copiado!" });
   };
 
+  const handleCheckoutSuccess = (result: any) => {
+    // Email toast + console log
+    console.log("📧 [EMAIL DATA]", {
+      to: formData.email,
+      event: event.title,
+      ticketLink: `https://easyticket.com/tickets`,
+      emailSent: result.email_sent,
+      emailData: result.email_data,
+    });
+    toast({ title: `📧 E-mail de confirmação enviado para ${formData.email}` });
+    navigateToSuccess(result.transaction_id);
+  };
+
   const handleConfirmPayment = async () => {
     setStep("processing");
     try {
       const result = await createCheckout();
-      navigateToSuccess(result.transaction_id);
+      handleCheckoutSuccess(result);
     } catch {
       setStep("form");
       toast({ title: "Erro ao processar pagamento", variant: "destructive" });
@@ -127,7 +140,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     setStep("processing");
     try {
       const result = await createCheckout();
-      navigateToSuccess(result.transaction_id);
+      handleCheckoutSuccess(result);
     } catch {
       setStep("form");
       toast({ title: "Erro ao processar pagamento", variant: "destructive" });

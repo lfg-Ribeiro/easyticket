@@ -13,6 +13,7 @@ import Profile from "./pages/Profile";
 import OrganizerDashboard from "./pages/OrganizerDashboard";
 import OrganizerScan from "./pages/OrganizerScan";
 import Auth from "./pages/Auth";
+import SaibaMais from "./pages/SaibaMais";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/purchase-success" element={<PurchaseSuccess />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/saiba-mais" element={<SaibaMais />} />
             <Route
               path="/organizer"
               element={
