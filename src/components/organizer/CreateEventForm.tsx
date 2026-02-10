@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronRight, Image, MapPin, Calendar, Tag, Settings, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronRight, Image, MapPin, Calendar, Tag, Settings, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -303,12 +303,22 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
                   className="hidden"
                 />
                 {coverPreview ? (
-                  <div className="relative rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
+                  <div className="relative rounded-xl overflow-hidden">
                     <img src={coverPreview} alt="Cover preview" className="w-full h-40 object-cover" />
-                    <div className="absolute inset-0 bg-foreground/10 flex items-center justify-center">
-                      <span className="text-sm text-primary-foreground bg-foreground/50 px-3 py-1 rounded-full">
-                        Alterar imagem
-                      </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCoverFile(null);
+                        setCoverPreview(null);
+                      }}
+                      className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-foreground/70 text-background hover:bg-foreground/90 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-foreground/50 to-transparent p-3 pointer-events-none">
+                      <span className="text-xs text-background font-medium">Clique na imagem para alterar</span>
                     </div>
                   </div>
                 ) : (

@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { Check, Home } from "lucide-react";
+import { Check, Home, CalendarPlus, MapPin } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { PremiumTicketCard } from "@/components/tickets/PremiumTicketCard";
 import { WalletButton } from "@/components/tickets/WalletButton";
@@ -45,6 +45,30 @@ export default function PurchaseSuccess() {
     fetchEvent();
   }, [eventId]);
 
+  const generateGoogleCalendarUrl = () => {
+    if (!eventData) return "#";
+    const dateStr = eventData.date.replace(/-/g, "");
+    const timeStr = eventData.time.replace(/:/g, "").slice(0, 4);
+    const startDateTime = `${dateStr}T${timeStr}00`;
+    const endDate = new Date(`${eventData.date}T${eventData.time}`);
+    endDate.setHours(endDate.getHours() + 3);
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const endDateTime = `${endDate.getFullYear()}${pad(endDate.getMonth() + 1)}${pad(endDate.getDate())}T${pad(endDate.getHours())}${pad(endDate.getMinutes())}00`;
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: eventData.title,
+      dates: `${startDateTime}/${endDateTime}`,
+      location: `${eventData.venue}, ${eventData.location}`,
+      details: `Ingresso EasyTicket - ${transactionId}`,
+    });
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  };
+
+  const getDirectionsUrl = () => {
+    if (!eventData) return "#";
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${eventData.venue}, ${eventData.location}`)}`;
+  };
+
   if (!eventData) {
     return (
       <MainLayout>
@@ -87,7 +111,28 @@ export default function PurchaseSuccess() {
           />
         </div>
 
-        <div className="animate-fade-up" style={{ animationDelay: "200ms" }}>
+        <div className="grid grid-cols-2 gap-3 animate-fade-up" style={{ animationDelay: "200ms" }}>
+          <Button
+            onClick={() => window.open(generateGoogleCalendarUrl(), "_blank")}
+            variant="outline"
+            size="lg"
+            className="gap-2"
+          >
+            <CalendarPlus className="h-4 w-4" />
+            Adicionar ao Calendário
+          </Button>
+          <Button
+            onClick={() => window.open(getDirectionsUrl(), "_blank")}
+            variant="outline"
+            size="lg"
+            className="gap-2"
+          >
+            <MapPin className="h-4 w-4" />
+            Como Chegar
+          </Button>
+        </div>
+
+        <div className="animate-fade-up" style={{ animationDelay: "300ms" }}>
           <WalletButton />
         </div>
 
