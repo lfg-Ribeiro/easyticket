@@ -1,1 +1,10 @@
 project_id = "drnvtdraypeygeimrvbp"
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.create-pix-payment]
+verify_jwt = false
+
+[functions.validate-ticket]
+verify_jwt = false

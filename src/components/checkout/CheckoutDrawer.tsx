@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Minus, Plus, CreditCard, QrCode, Copy, Check, X } from "lucide-react";
+import { Minus, Plus, CreditCard, QrCode, Copy, Check, X, Timer, RefreshCw } from "lucide-react";
 import {
   Drawer,
   DrawerClose,
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useCountdown } from "@/hooks/useCountdown";
 import type { Event } from "@/types/event";
 
 interface CheckoutDrawerProps {
@@ -32,6 +33,8 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
   const [isGeneratingPix, setIsGeneratingPix] = useState(false);
   const [pixGenerated, setPixGenerated] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [pixCode, setPixCode] = useState("");
+  const countdown = useCountdown(15 * 60);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -106,13 +109,34 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
       return;
     }
     setIsGeneratingPix(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setIsGeneratingPix(false);
-    setPixGenerated(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-pix-payment", {
+        body: {
+          amount: total,
+          customer_cpf: formData.cpf,
+          customer_name: formData.name,
+        },
+      });
+      if (error) throw error;
+      setPixCode(data.pix_code || "");
+      setPixGenerated(true);
+      countdown.start();
+    } catch {
+      toast({ title: "Erro ao gerar PIX", variant: "destructive" });
+    } finally {
+      setIsGeneratingPix(false);
+    }
+  };
+
+  const handleRegeneratePix = async () => {
+    setPixGenerated(false);
+    setPixCode("");
+    countdown.reset();
+    await handleGeneratePix();
   };
 
   const handleCopyPix = () => {
-    navigator.clipboard.writeText("00020126580014br.gov.bcb.pix0136a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+    navigator.clipboard.writeText(pixCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     toast({ title: "Código PIX copiado!" });
@@ -313,40 +337,72 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                         </Button>
                       ) : (
                         <div className="space-y-3 animate-fade-in">
+                          {/* Countdown Timer */}
+                          <div className={`flex items-center justify-center gap-2 p-2.5 rounded-lg text-sm font-semibold ${
+                            countdown.isExpired
+                              ? "bg-destructive/10 text-destructive"
+                              : countdown.secondsLeft <= 120
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-primary/10 text-primary"
+                          }`}>
+                            <Timer className="h-4 w-4" />
+                            {countdown.isExpired
+                              ? "Tempo esgotado! Gere um novo código."
+                              : `Reservado por ${countdown.formatted}. Complete o pagamento.`
+                            }
+                          </div>
+
                           <div className="bg-secondary p-4 rounded-xl flex flex-col items-center">
-                            <div className="w-40 h-40 bg-foreground rounded-lg flex items-center justify-center mb-3">
+                            <div className={`w-40 h-40 bg-foreground rounded-lg flex items-center justify-center mb-3 transition-all duration-500 ${
+                              countdown.isExpired ? "blur-md opacity-50" : ""
+                            }`}>
                               <div className="grid grid-cols-8 gap-0.5 p-2">
                                 {Array.from({ length: 64 }).map((_, i) => (
                                   <div
                                     key={i}
                                     className={`w-3 h-3 ${
-                                      Math.random() > 0.5 ? "bg-background" : "bg-foreground"
+                                      i % 3 === 0 || i % 7 === 0 ? "bg-background" : "bg-foreground"
                                     }`}
                                   />
                                 ))}
                               </div>
                             </div>
-                            <p className="text-xs text-muted-foreground text-center mb-2">
-                              Escaneie ou copie o código
-                            </p>
-                            <Button
-                              onClick={handleCopyPix}
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                            >
-                              {copied ? (
-                                <>
-                                  <Check className="h-4 w-4 mr-2" />
-                                  Copiado!
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="h-4 w-4 mr-2" />
-                                  Copiar Código PIX
-                                </>
-                              )}
-                            </Button>
+
+                            {countdown.isExpired ? (
+                              <Button
+                                onClick={handleRegeneratePix}
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                              >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Gerar Novo Código
+                              </Button>
+                            ) : (
+                              <>
+                                <p className="text-xs text-muted-foreground text-center mb-2">
+                                  Escaneie ou copie o código
+                                </p>
+                                <Button
+                                  onClick={handleCopyPix}
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full"
+                                >
+                                  {copied ? (
+                                    <>
+                                      <Check className="h-4 w-4 mr-2" />
+                                      Copiado!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="h-4 w-4 mr-2" />
+                                      Copiar Código PIX
+                                    </>
+                                  )}
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </div>
                       )}
@@ -378,7 +434,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                       variant="gradient"
                       size="lg"
                       className="w-full"
-                      disabled={!pixGenerated}
+                      disabled={!pixGenerated || countdown.isExpired}
                     >
                       Confirmar Pagamento PIX
                     </Button>
