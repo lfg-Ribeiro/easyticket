@@ -34,6 +34,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
   const [pixGenerated, setPixGenerated] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pixCode, setPixCode] = useState("");
+  const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
   const countdown = useCountdown(15 * 60);
   const [formData, setFormData] = useState({
     name: "",
@@ -119,6 +120,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
       });
       if (error) throw error;
       setPixCode(data.pix_code || "");
+      setQrCodeImage(data.qr_code_image || null);
       setPixGenerated(true);
       countdown.start();
     } catch {
@@ -131,6 +133,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
   const handleRegeneratePix = async () => {
     setPixGenerated(false);
     setPixCode("");
+    setQrCodeImage(null);
     countdown.reset();
     await handleGeneratePix();
   };
@@ -353,19 +356,23 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                           </div>
 
                           <div className="bg-secondary p-4 rounded-xl flex flex-col items-center">
-                            <div className={`w-40 h-40 bg-foreground rounded-lg flex items-center justify-center mb-3 transition-all duration-500 ${
+                            <div className={`w-40 h-40 rounded-lg flex items-center justify-center mb-3 transition-all duration-500 ${
                               countdown.isExpired ? "blur-md opacity-50" : ""
                             }`}>
-                              <div className="grid grid-cols-8 gap-0.5 p-2">
-                                {Array.from({ length: 64 }).map((_, i) => (
-                                  <div
-                                    key={i}
-                                    className={`w-3 h-3 ${
-                                      i % 3 === 0 || i % 7 === 0 ? "bg-background" : "bg-foreground"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
+                              {qrCodeImage ? (
+                                <img src={qrCodeImage} alt="QR Code PIX" className="w-full h-full rounded-lg" />
+                              ) : (
+                                <div className="w-full h-full bg-foreground rounded-lg flex items-center justify-center">
+                                  <div className="grid grid-cols-8 gap-0.5 p-2">
+                                    {Array.from({ length: 64 }).map((_, i) => (
+                                      <div
+                                        key={i}
+                                        className={`w-3 h-3 ${i % 3 === 0 || i % 7 === 0 ? "bg-background" : "bg-foreground"}`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                             {countdown.isExpired ? (
