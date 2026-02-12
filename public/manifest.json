@@ -1,0 +1,17 @@
+{
+  "name": "EasyTicket - Ingressos simplificados",
+  "short_name": "EasyTicket",
+  "description": "Compre e gerencie ingressos para eventos de forma rápida e segura.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}

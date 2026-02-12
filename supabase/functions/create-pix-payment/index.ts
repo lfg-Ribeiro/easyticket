@@ -6,11 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ASAAS_BASE_URL =
-  Deno.env.get("ASAAS_PRODUCTION") === "true"
-    ? "https://api.asaas.com/v3"
-    : "https://sandbox.asaas.com/api/v3";
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -21,22 +16,23 @@ serve(async (req) => {
 
     if (!amount || !customer_cpf || !customer_name) {
       return new Response(
-        JSON.stringify({
-          error: "Missing required fields: amount, customer_cpf, customer_name",
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: "Missing required fields: amount, customer_cpf, customer_name" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
+    const isProduction = Deno.env.get("ASAAS_PRODUCTION") === "true";
+    const baseUrl = isProduction
+      ? "https://api.asaas.com/v3"
+      : "https://sandbox.asaas.com/api/v3";
 
     if (asaasApiKey) {
       // ── Real Asaas Integration ──
+
       // 1. Create or find customer
-      const customerRes = await fetch(`${ASAAS_BASE_URL}/customers`, {
+      const cleanCpf = customer_cpf.replace(/\D/g, "");
+      const customerRes = await fetch(`${baseUrl}/customers`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -44,61 +40,52 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           name: customer_name,
-          cpfCnpj: customer_cpf.replace(/\D/g, ""),
+          cpfCnpj: cleanCpf,
         }),
       });
 
       const customerData = await customerRes.json();
-      if (!customerRes.ok) {
+      // Asaas returns existing customer if cpf already exists (or creates new)
+      const customerId = customerData.id;
+      if (!customerId) {
         console.error("Asaas customer error:", customerData);
         return new Response(
-          JSON.stringify({ error: "Failed to create customer in Asaas" }),
-          {
-            status: 502,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          JSON.stringify({ error: "Failed to create/find customer in Asaas", details: customerData }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       // 2. Create PIX payment
-      const dueDate = new Date(Date.now() + 15 * 60 * 1000)
-        .toISOString()
-        .split("T")[0];
+      const today = new Date().toISOString().split("T")[0];
 
-      const paymentRes = await fetch(`${ASAAS_BASE_URL}/payments`, {
+      const paymentRes = await fetch(`${baseUrl}/payments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           access_token: asaasApiKey,
         },
         body: JSON.stringify({
-          customer: customerData.id,
+          customer: customerId,
           billingType: "PIX",
-          value: amount,
-          dueDate,
+          value: Number(amount),
+          dueDate: today,
           description: "Ingresso EasyTicket",
         }),
       });
 
       const paymentData = await paymentRes.json();
-      if (!paymentRes.ok) {
+      if (!paymentRes.ok || !paymentData.id) {
         console.error("Asaas payment error:", paymentData);
         return new Response(
-          JSON.stringify({ error: "Failed to create payment in Asaas" }),
-          {
-            status: 502,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          JSON.stringify({ error: "Failed to create payment in Asaas", details: paymentData }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       // 3. Get PIX QR Code
-      const qrRes = await fetch(
-        `${ASAAS_BASE_URL}/payments/${paymentData.id}/pixQrCode`,
-        {
-          headers: { access_token: asaasApiKey },
-        }
-      );
+      const qrRes = await fetch(`${baseUrl}/payments/${paymentData.id}/pixQrCode`, {
+        headers: { access_token: asaasApiKey },
+      });
 
       const qrData = await qrRes.json();
 
@@ -108,20 +95,15 @@ serve(async (req) => {
           payment_id: paymentData.id,
           status: paymentData.status,
           pix_code: qrData.payload || "",
-          qr_code_image: qrData.encodedImage || null,
+          qr_code_image: qrData.encodedImage ? `data:image/png;base64,${qrData.encodedImage}` : null,
           expiration: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
         }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // ── Mock / Simulation Mode ──
-    console.log(
-      "💰 [MOCK PIX] ASAAS_API_KEY not configured. Simulating PIX payment:"
-    );
+    console.log("💰 [MOCK PIX] ASAAS_API_KEY not configured. Simulating PIX payment:");
     console.log(JSON.stringify({ amount, customer_cpf, customer_name }, null, 2));
 
     const mockPaymentId = `pay_mock_${Date.now().toString(36)}`;
@@ -137,19 +119,13 @@ serve(async (req) => {
         qr_code_image: null,
         expiration: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("PIX payment error:", err);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

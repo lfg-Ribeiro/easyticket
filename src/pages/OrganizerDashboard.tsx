@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, DollarSign, TrendingUp, UserCheck, Eye, QrCode } from "lucide-react";
+import { Plus, DollarSign, TrendingUp, UserCheck, Eye, QrCode, Percent, Wallet } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/organizer/MetricCard";
@@ -30,6 +30,7 @@ export default function OrganizerDashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [myEvents, setMyEvents] = useState<DBEvent[]>([]);
   const [totalSales, setTotalSales] = useState(0);
+  const [totalFees, setTotalFees] = useState(0);
   const [ticketsSold, setTicketsSold] = useState(0);
   const [checkIns, setCheckIns] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -54,11 +55,12 @@ export default function OrganizerDashboard() {
         // Fetch orders for these events
         const { data: orders } = await supabase
           .from("orders")
-          .select("total_amount, quantity")
+          .select("total_amount, service_fee, quantity")
           .in("event_id", eventIds);
 
         if (orders) {
           setTotalSales(orders.reduce((sum: number, o: any) => sum + Number(o.total_amount), 0));
+          setTotalFees(orders.reduce((sum: number, o: any) => sum + Number(o.service_fee), 0));
           setTicketsSold(orders.reduce((sum: number, o: any) => sum + o.quantity, 0));
         }
 
@@ -92,8 +94,12 @@ export default function OrganizerDashboard() {
     ? `${Math.round((checkIns / ticketsSold) * 100)}% do total vendido`
     : "0% do total vendido";
 
+  const netReceivable = totalSales - totalFees;
+
   const metrics = [
-    { label: "Total de Vendas", value: formatCurrency(totalSales), icon: DollarSign, trend: "" },
+    { label: "Total Bruto", value: formatCurrency(totalSales), icon: DollarSign, trend: "" },
+    { label: "Taxas da Plataforma (5%)", value: formatCurrency(totalFees), icon: Percent, trend: "" },
+    { label: "Líquido a Receber", value: formatCurrency(netReceivable), icon: Wallet, trend: "" },
     { label: "Ingressos Vendidos", value: String(ticketsSold), icon: TrendingUp, trend: "" },
     { label: "Check-ins Realizados", value: String(checkIns), icon: UserCheck, trend: "", subtitle: checkInPercent },
     { label: "Meus Eventos", value: String(myEvents.length), icon: Eye, trend: "" },
@@ -147,7 +153,7 @@ export default function OrganizerDashboard() {
         </section>
 
         {/* Metric Cards */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <section className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           {metrics.map((metric) => (
             <MetricCard key={metric.label} {...metric} />
           ))}

@@ -26,6 +26,48 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // ── Guest Checkout: Silent user creation ──
+    let guestUserId: string | null = null;
+    try {
+      // Check if user exists
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+      const existingUser = existingUsers?.users?.find(
+        (u: any) => u.email?.toLowerCase() === buyer_email.toLowerCase()
+      );
+
+      if (existingUser) {
+        guestUserId = existingUser.id;
+      } else {
+        // Create user silently with a random password
+        const tempPassword = crypto.randomUUID();
+        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email: buyer_email,
+          password: tempPassword,
+          email_confirm: true,
+          user_metadata: { full_name: buyer_name },
+        });
+
+        if (createError) {
+          console.error("Silent user creation error:", createError);
+        } else if (newUser?.user) {
+          guestUserId = newUser.user.id;
+
+          // E-mail 1: Send magic link so user can set password / access account
+          const { error: magicError } = await supabaseAdmin.auth.admin.generateLink({
+            type: "magiclink",
+            email: buyer_email,
+          });
+          if (magicError) {
+            console.error("Magic link generation error:", magicError);
+          } else {
+            console.log(`🔑 [ACCESS EMAIL] Magic link generated for ${buyer_email}`);
+          }
+        }
+      }
+    } catch (userErr) {
+      console.error("Guest user flow error:", userErr);
+    }
+
     // Get event and batch info
     const { data: event, error: eventError } = await supabaseAdmin
       .from("events")
@@ -41,6 +83,7 @@ serve(async (req) => {
     }
 
     let batchPrice = 0;
+    let selectedBatchId = batch_id || null;
     if (batch_id) {
       const { data: batch } = await supabaseAdmin
         .from("ticket_batches")
@@ -58,7 +101,6 @@ serve(async (req) => {
         batchPrice = Number(batch.price);
       }
     } else {
-      // If no batch_id, get cheapest available batch
       const { data: batches } = await supabaseAdmin
         .from("ticket_batches")
         .select("*")
@@ -69,6 +111,7 @@ serve(async (req) => {
 
       if (batches && batches.length > 0) {
         batchPrice = Number(batches[0].price);
+        selectedBatchId = batches[0].id;
       }
     }
 
@@ -112,7 +155,7 @@ serve(async (req) => {
       tickets.push({
         order_id: order.id,
         event_id,
-        batch_id: batch_id || null,
+        batch_id: selectedBatchId,
         qr_code: qrCode,
         holder_name: buyer_name,
         holder_email: buyer_email,
@@ -133,29 +176,29 @@ serve(async (req) => {
       );
     }
 
-    // Update available quantity if batch
-    if (batch_id) {
+    // Update available quantity
+    if (selectedBatchId) {
       const { data: currentBatch } = await supabaseAdmin
         .from("ticket_batches")
         .select("available_quantity")
-        .eq("id", batch_id)
+        .eq("id", selectedBatchId)
         .single();
 
       if (currentBatch) {
         await supabaseAdmin
           .from("ticket_batches")
           .update({ available_quantity: Math.max(0, currentBatch.available_quantity - quantity) })
-          .eq("id", batch_id);
+          .eq("id", selectedBatchId);
       }
     }
 
-    // Email simulation (Resend-ready)
+    // ── E-mail 2: Ticket confirmation (mock/Resend) ──
     let emailSent = false;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
     const emailData = {
       to: buyer_email,
-      subject: `Seu ingresso chegou! - ${event.title}`,
+      subject: `Seu acesso ao evento ${event.title} está garantido!`,
       eventTitle: event.title,
       eventDate: event.event_date,
       eventTime: event.event_time,
@@ -172,26 +215,21 @@ serve(async (req) => {
         const { default: { Resend } } = await import("npm:resend@2.0.0");
         const resend = new Resend(resendApiKey);
 
-        const ticketLinks = emailData.ticketIds
-          .map((id: string) => `https://easyticket.com/ticket/${id}`)
-          .join("\n");
-
         await resend.emails.send({
           from: "EasyTicket <noreply@easyticket.com>",
           to: [buyer_email],
           subject: emailData.subject,
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-              <h1 style="color: #2563eb;">Seu ingresso chegou! 🎉</h1>
+              <h1 style="color: #2563eb;">Seu acesso ao evento ${event.title} está garantido! 🎉</h1>
               <p>Olá <strong>${buyer_name}</strong>,</p>
-              <p>Sua compra para <strong>${event.title}</strong> foi confirmada!</p>
+              <p>Sua compra foi confirmada com sucesso!</p>
               <div style="background: #f1f5f9; padding: 16px; border-radius: 12px; margin: 16px 0;">
                 <p><strong>📅 Data:</strong> ${event.event_date} às ${event.event_time}</p>
                 <p><strong>📍 Local:</strong> ${event.venue}, ${event.location}</p>
                 <p><strong>🎫 Quantidade:</strong> ${quantity} ingresso(s)</p>
                 <p><strong>🆔 Transação:</strong> ${transactionId}</p>
               </div>
-              <p>Acesse seus ingressos e QR Codes:</p>
               <a href="https://easyticket.com/tickets" 
                  style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
                 Ver Meus Ingressos
@@ -200,12 +238,12 @@ serve(async (req) => {
           `,
         });
         emailSent = true;
-        console.log("Email sent successfully to:", buyer_email);
+        console.log("✅ Email sent to:", buyer_email);
       } catch (emailErr) {
         console.error("Email send error:", emailErr);
       }
     } else {
-      console.log("📧 [MOCK EMAIL] RESEND_API_KEY not configured. Email would be sent:");
+      console.log("📧 [MOCK EMAIL - TICKET] Email would be sent:");
       console.log(JSON.stringify(emailData, null, 2));
     }
 
@@ -216,6 +254,7 @@ serve(async (req) => {
         transaction_id: transactionId,
         email_sent: emailSent,
         email_data: emailData,
+        guest_user_id: guestUserId,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
