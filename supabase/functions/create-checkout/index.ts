@@ -133,7 +133,7 @@ serve(async (req) => {
         service_fee: serviceFee,
         total_amount: totalAmount,
         payment_method: payment_method || "pix",
-        payment_status: "confirmed",
+        payment_status: payment_method === "card" ? "confirmed" : "pending",
         transaction_id: transactionId,
       })
       .select()
@@ -265,10 +265,17 @@ serve(async (req) => {
 
         if (resendRes.ok) {
           emailSent = true;
-          console.log("✅ Resend email sent to:", buyer_email);
+          const resendData = await resendRes.json();
+          console.log("✅ Resend email sent to:", buyer_email, "ID:", resendData.id);
         } else {
           const errBody = await resendRes.text();
-          console.error("Resend error:", errBody);
+          console.error("[RESEND ERROR]:", resendRes.status, errBody);
+          if (errBody.includes("domain")) {
+            console.error("[RESEND ERROR]: Domain verification issue. Use onboarding@resend.dev for free accounts.");
+          }
+          if (errBody.includes("403") || errBody.includes("Forbidden")) {
+            console.error("[RESEND ERROR]: 403 Forbidden - check API key permissions and plan limits.");
+          }
         }
       } catch (emailErr) {
         console.error("Email send error:", emailErr);

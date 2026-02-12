@@ -27,6 +27,8 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
   const [pixCode, setPixCode] = useState("");
   const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
   const [pixPaymentId, setPixPaymentId] = useState("");
+  const [pixOrderId, setPixOrderId] = useState("");
+  const [pixTransactionId, setPixTransactionId] = useState("");
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const countdown = useCountdown(15 * 60);
   const [formData, setFormData] = useState({
@@ -85,7 +87,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     return data;
   };
 
-  const navigateToSuccess = (txn: string, ordId?: string) => {
+  const navigateToSuccess = (txn: string, ordId?: string, pmtId?: string) => {
     const params = new URLSearchParams({
       eventId: event.id,
       name: formData.name,
@@ -93,8 +95,8 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       quantity: quantity.toString(),
       txn,
     });
-    if (pixPaymentId) params.set("paymentId", pixPaymentId);
-    if (ordId) params.set("orderId", ordId);
+    if (pmtId || pixPaymentId) params.set("paymentId", pmtId || pixPaymentId);
+    if (ordId || pixOrderId) params.set("orderId", ordId || pixOrderId);
     navigate(`/purchase-success?${params.toString()}`);
   };
 
@@ -105,6 +107,14 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     }
     setIsGeneratingPix(true);
     try {
+      // 1. Create order as pending
+      const checkoutResult = await createCheckout();
+      const orderId = checkoutResult.order?.id;
+      const txnId = checkoutResult.transaction_id;
+      setPixOrderId(orderId || "");
+      setPixTransactionId(txnId || "");
+
+      // 2. Generate PIX via Asaas
       const { data, error } = await supabase.functions.invoke("create-pix-payment", {
         body: {
           amount: total,
@@ -158,13 +168,12 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     setIsCheckingPayment(true);
     try {
       const { data, error } = await supabase.functions.invoke("check-payment-status", {
-        body: { payment_id: pixPaymentId },
+        body: { payment_id: pixPaymentId, order_id: pixOrderId },
       });
       if (error) throw error;
       if (data?.status === "confirmed") {
-        // Payment confirmed, proceed with checkout
-        const result = await createCheckout();
-        handleCheckoutSuccess(result);
+        toast({ title: "Pagamento confirmado! 🎉" });
+        navigateToSuccess(pixTransactionId, pixOrderId, pixPaymentId);
       } else {
         toast({ title: "Pagamento ainda não confirmado. Aguarde alguns instantes.", variant: "destructive" });
       }
@@ -176,14 +185,8 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
   };
 
   const handleConfirmPayment = async () => {
-    setStep("processing");
-    try {
-      const result = await createCheckout();
-      handleCheckoutSuccess(result);
-    } catch {
-      setStep("form");
-      toast({ title: "Erro ao processar pagamento", variant: "destructive" });
-    }
+    // PIX: order already created, just navigate to success page for polling
+    navigateToSuccess(pixTransactionId, pixOrderId, pixPaymentId);
   };
 
   const handleCardPayment = async () => {
