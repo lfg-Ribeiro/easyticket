@@ -48,11 +48,11 @@ export default function OrganizerDashboard() {
 
       setMyEvents((events as DBEvent[]) || []);
 
-      // Fetch ALL confirmed orders
+      // Fetch ALL confirmed/paid orders (exclude pending)
       const { data: orders } = await supabase
         .from("orders")
-        .select("total_amount, service_fee, quantity")
-        .eq("payment_status", "confirmed");
+        .select("total_amount, service_fee, quantity, payment_status")
+        .in("payment_status", ["confirmed", "paid"]);
 
       if (orders) {
         setTotalSales(orders.reduce((sum: number, o: any) => sum + Number(o.total_amount), 0));

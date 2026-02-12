@@ -26,6 +26,8 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
   const [copied, setCopied] = useState(false);
   const [pixCode, setPixCode] = useState("");
   const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
+  const [pixPaymentId, setPixPaymentId] = useState("");
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const countdown = useCountdown(15 * 60);
   const [formData, setFormData] = useState({
     name: "",
@@ -83,7 +85,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     return data;
   };
 
-  const navigateToSuccess = (txn: string) => {
+  const navigateToSuccess = (txn: string, ordId?: string) => {
     const params = new URLSearchParams({
       eventId: event.id,
       name: formData.name,
@@ -91,6 +93,8 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       quantity: quantity.toString(),
       txn,
     });
+    if (pixPaymentId) params.set("paymentId", pixPaymentId);
+    if (ordId) params.set("orderId", ordId);
     navigate(`/purchase-success?${params.toString()}`);
   };
 
@@ -111,6 +115,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       if (error) throw error;
       setPixCode(data.pix_code || "");
       setQrCodeImage(data.qr_code_image || null);
+      setPixPaymentId(data.payment_id || "");
       setPixGenerated(true);
       countdown.start();
     } catch {
@@ -145,7 +150,29 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       emailData: result.email_data,
     });
     toast({ title: `📧 E-mail de confirmação enviado para ${formData.email}` });
-    navigateToSuccess(result.transaction_id);
+    navigateToSuccess(result.transaction_id, result.order?.id);
+  };
+
+  const handleJaPaguei = async () => {
+    if (!pixPaymentId) return;
+    setIsCheckingPayment(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-payment-status", {
+        body: { payment_id: pixPaymentId },
+      });
+      if (error) throw error;
+      if (data?.status === "confirmed") {
+        // Payment confirmed, proceed with checkout
+        const result = await createCheckout();
+        handleCheckoutSuccess(result);
+      } else {
+        toast({ title: "Pagamento ainda não confirmado. Aguarde alguns instantes.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Erro ao verificar pagamento", variant: "destructive" });
+    } finally {
+      setIsCheckingPayment(false);
+    }
   };
 
   const handleConfirmPayment = async () => {
@@ -405,15 +432,35 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       {/* Action Button */}
       <div className="space-y-3">
         {paymentMethod === "pix" ? (
-          <Button
-            onClick={handleConfirmPayment}
-            variant="gradient"
-            size="lg"
-            className="w-full"
-            disabled={!pixGenerated || countdown.isExpired}
-          >
-            Confirmar Pagamento PIX
-          </Button>
+          <>
+            <Button
+              onClick={handleConfirmPayment}
+              variant="gradient"
+              size="lg"
+              className="w-full"
+              disabled={!pixGenerated || countdown.isExpired}
+            >
+              Confirmar Pagamento PIX
+            </Button>
+            {pixGenerated && !countdown.isExpired && (
+              <Button
+                onClick={handleJaPaguei}
+                variant="outline"
+                size="lg"
+                className="w-full gap-2"
+                disabled={isCheckingPayment}
+              >
+                {isCheckingPayment ? (
+                  <>
+                    <span className="h-4 w-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    Verificando...
+                  </>
+                ) : (
+                  "Já fiz o pagamento"
+                )}
+              </Button>
+            )}
+          </>
         ) : (
           <Button
             onClick={handleCardPayment}

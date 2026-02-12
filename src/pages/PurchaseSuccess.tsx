@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { Check, Home, CalendarPlus, MapPin } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Check, Home, CalendarPlus, MapPin, Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { PremiumTicketCard } from "@/components/tickets/PremiumTicketCard";
 import { WalletButton } from "@/components/tickets/WalletButton";
@@ -17,10 +17,16 @@ export default function PurchaseSuccess() {
   const email = searchParams.get("email") || "";
   const quantity = parseInt(searchParams.get("quantity") || "1", 10);
   const transactionId = searchParams.get("txn") || `TXN-${Date.now().toString(36).toUpperCase()}`;
+  const paymentId = searchParams.get("paymentId") || "";
+  const orderId = searchParams.get("orderId") || "";
 
   const [eventData, setEventData] = useState<{
     title: string; image: string; date: string; time: string; venue: string; location: string;
   } | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<"pending" | "confirmed" | "failed">(
+    paymentId ? "pending" : "confirmed"
+  );
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -44,6 +50,37 @@ export default function PurchaseSuccess() {
     };
     fetchEvent();
   }, [eventId]);
+
+  // Polling for Asaas payment confirmation
+  useEffect(() => {
+    if (!paymentId || paymentStatus === "confirmed") return;
+
+    const checkStatus = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("check-payment-status", {
+          body: { payment_id: paymentId, order_id: orderId },
+        });
+        if (error) {
+          console.error("Payment status check error:", error);
+          return;
+        }
+        if (data?.status === "confirmed") {
+          setPaymentStatus("confirmed");
+          if (pollingRef.current) clearInterval(pollingRef.current);
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    };
+
+    // Check immediately, then every 5 seconds
+    checkStatus();
+    pollingRef.current = setInterval(checkStatus, 5000);
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [paymentId, orderId, paymentStatus]);
 
   const generateGoogleCalendarUrl = () => {
     if (!eventData) return "#";
@@ -82,15 +119,40 @@ export default function PurchaseSuccess() {
   return (
     <MainLayout>
       <div className="container max-w-lg py-8 space-y-6">
-        <div className="text-center space-y-3 animate-fade-up">
-          <div className="w-16 h-16 mx-auto rounded-full bg-success/10 flex items-center justify-center">
-            <Check className="h-8 w-8 text-success" />
+        {/* Payment status banner */}
+        {paymentStatus === "pending" && (
+          <div className="flex items-center gap-3 p-4 bg-primary/10 rounded-xl animate-pulse">
+            <Loader2 className="h-5 w-5 text-primary animate-spin" />
+            <div>
+              <p className="font-semibold text-foreground text-sm">Aguardando confirmação do PIX...</p>
+              <p className="text-xs text-muted-foreground">Verificando automaticamente a cada 5 segundos</p>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Compra Confirmada! 🎉</h1>
+        )}
+
+        <div className="text-center space-y-3 animate-fade-up">
+          <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${
+            paymentStatus === "confirmed" ? "bg-success/10" : "bg-primary/10"
+          }`}>
+            {paymentStatus === "confirmed" ? (
+              <Check className="h-8 w-8 text-success" />
+            ) : (
+              <Loader2 className="h-8 w-8 text-primary animate-spin" />
+            )}
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">
+            {paymentStatus === "confirmed" ? "Compra Confirmada! 🎉" : "Processando Pagamento..."}
+          </h1>
           <p className="text-muted-foreground text-sm leading-relaxed max-w-sm mx-auto">
-            Seu ingresso foi enviado para{" "}
-            <span className="font-semibold text-foreground">{email}</span>.
-            Sua conta foi criada automaticamente — use seu e-mail para acessar seus ingressos.
+            {paymentStatus === "confirmed" ? (
+              <>
+                Seu ingresso foi enviado para{" "}
+                <span className="font-semibold text-foreground">{email}</span>.
+                Sua conta foi criada automaticamente — use seu e-mail para acessar seus ingressos.
+              </>
+            ) : (
+              "Estamos aguardando a confirmação do seu pagamento PIX. Isso pode levar alguns instantes."
+            )}
           </p>
         </div>
 
