@@ -40,39 +40,33 @@ export default function OrganizerDashboard() {
 
     setLoading(true);
     try {
-      // Fetch organizer's events
+      // Fetch ALL events (super admin view)
       const { data: events } = await supabase
         .from("events")
         .select("*")
-        .eq("organizer_id", user.id)
         .order("created_at", { ascending: false });
 
       setMyEvents((events as DBEvent[]) || []);
 
-      if (events && events.length > 0) {
-        const eventIds = events.map((e: any) => e.id);
+      // Fetch ALL confirmed orders
+      const { data: orders } = await supabase
+        .from("orders")
+        .select("total_amount, service_fee, quantity")
+        .eq("payment_status", "confirmed");
 
-        // Fetch orders for these events
-        const { data: orders } = await supabase
-          .from("orders")
-          .select("total_amount, service_fee, quantity")
-          .in("event_id", eventIds);
+      if (orders) {
+        setTotalSales(orders.reduce((sum: number, o: any) => sum + Number(o.total_amount), 0));
+        setTotalFees(orders.reduce((sum: number, o: any) => sum + Number(o.service_fee), 0));
+        setTicketsSold(orders.reduce((sum: number, o: any) => sum + o.quantity, 0));
+      }
 
-        if (orders) {
-          setTotalSales(orders.reduce((sum: number, o: any) => sum + Number(o.total_amount), 0));
-          setTotalFees(orders.reduce((sum: number, o: any) => sum + Number(o.service_fee), 0));
-          setTicketsSold(orders.reduce((sum: number, o: any) => sum + o.quantity, 0));
-        }
+      // Fetch ALL check-ins
+      const { data: tickets } = await supabase
+        .from("tickets")
+        .select("check_in_status");
 
-        // Fetch check-ins
-        const { data: tickets } = await supabase
-          .from("tickets")
-          .select("check_in_status")
-          .in("event_id", eventIds);
-
-        if (tickets) {
-          setCheckIns(tickets.filter((t: any) => t.check_in_status === "used").length);
-        }
+      if (tickets) {
+        setCheckIns(tickets.filter((t: any) => t.check_in_status === "used").length);
       }
     } catch (err) {
       console.error("Dashboard error:", err);
