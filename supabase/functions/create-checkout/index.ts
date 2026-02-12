@@ -193,6 +193,7 @@ serve(async (req) => {
 
     // ── E-mail 2: Ticket confirmation via Resend ──
     let emailSent = false;
+    let emailError: string | null = null;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const ticketUrl = supabaseUrl ? `${supabaseUrl.replace('.supabase.co', '')}/tickets` : "https://easyticket.com/tickets";
@@ -247,8 +248,10 @@ serve(async (req) => {
       </div>
     `;
 
+    console.log("📧 [RESEND DEBUG] Key exists:", resendApiKey ? "SIM" : "NÃO");
     if (resendApiKey) {
       try {
+        console.log(`📧 [RESEND] Sending to: ${buyer_email}, From: EasyTicket <onboarding@resend.dev>`);
         const resendRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -269,6 +272,7 @@ serve(async (req) => {
           console.log("✅ Resend email sent to:", buyer_email, "ID:", resendData.id);
         } else {
           const errBody = await resendRes.text();
+          emailError = `[${resendRes.status}] ${errBody}`;
           console.error("[RESEND ERROR]:", resendRes.status, errBody);
           if (errBody.includes("domain")) {
             console.error("[RESEND ERROR]: Domain verification issue. Use onboarding@resend.dev for free accounts.");
@@ -291,6 +295,7 @@ serve(async (req) => {
         tickets: createdTickets,
         transaction_id: transactionId,
         email_sent: emailSent,
+        email_error: emailError,
         guest_user_id: guestUserId,
         is_new_user: isNewUser,
       }),
