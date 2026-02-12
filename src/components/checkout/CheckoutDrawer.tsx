@@ -45,6 +45,12 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
     email: "",
     cpf: "",
   });
+  const [cardData, setCardData] = useState({
+    number: "",
+    holderName: "",
+    expiry: "",
+    cvv: "",
+  });
 
   const subtotal = event.price * quantity;
   const serviceFee = subtotal * 0.05;
@@ -198,18 +204,63 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
     navigateToSuccess(pixTransactionId, pixOrderId, pixPaymentId);
   };
 
+  const formatCardNumber = (value: string) => {
+    const nums = value.replace(/\D/g, "").slice(0, 16);
+    return nums.replace(/(\d{4})(?=\d)/g, "$1 ");
+  };
+
+  const formatExpiry = (value: string) => {
+    const nums = value.replace(/\D/g, "").slice(0, 4);
+    if (nums.length >= 3) return `${nums.slice(0, 2)}/${nums.slice(2)}`;
+    return nums;
+  };
+
+  const isCardFormValid = isFormValid &&
+    cardData.number.replace(/\D/g, "").length >= 13 &&
+    cardData.holderName.trim().length > 0 &&
+    cardData.expiry.length >= 5 &&
+    cardData.cvv.length >= 3;
+
   const handleCardPayment = async () => {
-    if (!isFormValid) {
-      toast({ title: "Preencha todos os campos", variant: "destructive" });
+    if (!isCardFormValid) {
+      toast({ title: "Preencha todos os campos do cartão", variant: "destructive" });
       return;
     }
     setStep("processing");
     try {
-      const result = await createCheckout();
-      handleCheckoutSuccess(result);
+      const checkoutResult = await createCheckout();
+      const orderId = checkoutResult.order?.id;
+      const txnId = checkoutResult.transaction_id;
+
+      const expiryParts = cardData.expiry.split("/");
+      const { data, error } = await supabase.functions.invoke("create-card-payment", {
+        body: {
+          amount: total,
+          customer_cpf: formData.cpf,
+          customer_name: formData.name,
+          customer_email: formData.email,
+          holder_name: cardData.holderName,
+          number: cardData.number.replace(/\D/g, ""),
+          expiry_month: expiryParts[0],
+          expiry_year: `20${expiryParts[1]}`,
+          ccv: cardData.cvv,
+          event_id: event.id,
+          quantity,
+          buyer_cpf: formData.cpf,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.confirmed || data?.status === "CONFIRMED" || data?.status === "RECEIVED") {
+        toast({ title: "Pagamento aprovado! 🎉" });
+        navigateToSuccess(txnId, orderId);
+      } else {
+        toast({ title: "Pagamento não aprovado. Verifique os dados do cartão.", variant: "destructive" });
+        setStep("quantity");
+      }
     } catch {
       setStep("quantity");
-      toast({ title: "Erro ao processar pagamento", variant: "destructive" });
+      toast({ title: "Erro ao processar pagamento com cartão", variant: "destructive" });
     }
   };
 
@@ -348,6 +399,58 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                       </span>
                     </button>
                   </div>
+
+                  {/* Card Payment Form */}
+                  {paymentMethod === "card" && (
+                    <div className="space-y-3 pt-2">
+                      <div>
+                        <Label htmlFor="d-cardNumber" className="text-sm">Número do Cartão</Label>
+                        <Input
+                          id="d-cardNumber"
+                          value={cardData.number}
+                          onChange={(e) => setCardData(prev => ({ ...prev, number: formatCardNumber(e.target.value) }))}
+                          placeholder="0000 0000 0000 0000"
+                          className="mt-1"
+                          maxLength={19}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="d-holderName" className="text-sm">Nome no Cartão</Label>
+                        <Input
+                          id="d-holderName"
+                          value={cardData.holderName}
+                          onChange={(e) => setCardData(prev => ({ ...prev, holderName: e.target.value.toUpperCase() }))}
+                          placeholder="NOME COMO NO CARTÃO"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="d-expiry" className="text-sm">Validade</Label>
+                          <Input
+                            id="d-expiry"
+                            value={cardData.expiry}
+                            onChange={(e) => setCardData(prev => ({ ...prev, expiry: formatExpiry(e.target.value) }))}
+                            placeholder="MM/AA"
+                            className="mt-1"
+                            maxLength={5}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="d-cvv" className="text-sm">CVV</Label>
+                          <Input
+                            id="d-cvv"
+                            value={cardData.cvv}
+                            onChange={(e) => setCardData(prev => ({ ...prev, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
+                            placeholder="123"
+                            className="mt-1"
+                            maxLength={4}
+                            type="password"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* PIX Payment */}
                   {paymentMethod === "pix" && (
@@ -501,7 +604,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                       variant="gradient"
                       size="lg"
                       className="w-full"
-                      disabled={!isFormValid}
+                      disabled={!isCardFormValid}
                     >
                       Pagar {formatCurrency(total)}
                     </Button>

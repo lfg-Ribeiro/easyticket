@@ -55,16 +55,21 @@ export default function PurchaseSuccess() {
   useEffect(() => {
     if (!paymentId || paymentStatus === "confirmed") return;
 
+    let active = true;
+
     const checkStatus = async () => {
       try {
+        console.log("🔄 Polling payment status for:", paymentId, "order:", orderId);
         const { data, error } = await supabase.functions.invoke("check-payment-status", {
           body: { payment_id: paymentId, order_id: orderId },
         });
+        if (!active) return;
         if (error) {
           console.error("Payment status check error:", error);
           return;
         }
-        if (data?.status === "confirmed") {
+        console.log("📊 Payment status response:", data);
+        if (data?.status === "confirmed" || data?.asaas_status === "RECEIVED" || data?.asaas_status === "CONFIRMED") {
           setPaymentStatus("confirmed");
           if (pollingRef.current) clearInterval(pollingRef.current);
         }
@@ -73,11 +78,11 @@ export default function PurchaseSuccess() {
       }
     };
 
-    // Check immediately, then every 5 seconds
     checkStatus();
     pollingRef.current = setInterval(checkStatus, 5000);
 
     return () => {
+      active = false;
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, [paymentId, orderId, paymentStatus]);
