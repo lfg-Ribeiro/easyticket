@@ -88,7 +88,7 @@ export default function Auth() {
           <div className="w-14 h-14 mx-auto rounded-2xl gradient-primary flex items-center justify-center">
             <Ticket className="h-7 w-7 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">IngressoFácil</h1>
+          <h1 className="text-2xl font-bold text-foreground">EasyTicket</h1>
           <p className="text-muted-foreground text-sm">
             {mode === "login" ? "Acesse sua conta de organizador" : "Crie sua conta de organizador"}
           </p>

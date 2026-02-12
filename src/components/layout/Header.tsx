@@ -33,7 +33,7 @@ export function Header() {
           <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center">
             <Ticket className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold text-foreground">IngressoFácil</span>
+          <span className="text-xl font-bold text-foreground">EasyTicket</span>
         </Link>
 
         <nav className="flex items-center gap-1">

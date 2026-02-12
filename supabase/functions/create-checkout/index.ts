@@ -28,8 +28,8 @@ serve(async (req) => {
 
     // ── Guest Checkout: Silent user creation ──
     let guestUserId: string | null = null;
+    let isNewUser = false;
     try {
-      // Check if user exists
       const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
       const existingUser = existingUsers?.users?.find(
         (u: any) => u.email?.toLowerCase() === buyer_email.toLowerCase()
@@ -38,7 +38,7 @@ serve(async (req) => {
       if (existingUser) {
         guestUserId = existingUser.id;
       } else {
-        // Create user silently with a random password
+        isNewUser = true;
         const tempPassword = crypto.randomUUID();
         const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
           email: buyer_email,
@@ -52,16 +52,15 @@ serve(async (req) => {
         } else if (newUser?.user) {
           guestUserId = newUser.user.id;
 
-          // E-mail 1: Send magic link so user can set password / access account
-          const { error: magicError } = await supabaseAdmin.auth.admin.generateLink({
+          // E-mail 1: Magic link for account access (fired in parallel with ticket email below)
+          const magicLinkPromise = supabaseAdmin.auth.admin.generateLink({
             type: "magiclink",
             email: buyer_email,
           });
-          if (magicError) {
-            console.error("Magic link generation error:", magicError);
-          } else {
-            console.log(`🔑 [ACCESS EMAIL] Magic link generated for ${buyer_email}`);
-          }
+          magicLinkPromise.then(({ error }) => {
+            if (error) console.error("Magic link error:", error);
+            else console.log(`🔑 [ACCESS EMAIL] Magic link sent to ${buyer_email}`);
+          });
         }
       }
     } catch (userErr) {
@@ -192,59 +191,91 @@ serve(async (req) => {
       }
     }
 
-    // ── E-mail 2: Ticket confirmation (mock/Resend) ──
+    // ── E-mail 2: Ticket confirmation via Resend ──
     let emailSent = false;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const ticketUrl = supabaseUrl ? `${supabaseUrl.replace('.supabase.co', '')}/tickets` : "https://easyticket.com/tickets";
 
-    const emailData = {
-      to: buyer_email,
-      subject: `Seu acesso ao evento ${event.title} está garantido!`,
-      eventTitle: event.title,
-      eventDate: event.event_date,
-      eventTime: event.event_time,
-      eventVenue: event.venue,
-      eventLocation: event.location,
-      holderName: buyer_name,
-      quantity,
-      transactionId,
-      ticketIds: createdTickets?.map((t: any) => t.id) || [],
-    };
+    const emailHtml = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+        <div style="background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); padding: 32px 24px; border-radius: 12px 12px 0 0; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🎫 EasyTicket</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">Seu acesso está garantido!</p>
+        </div>
+        <div style="padding: 32px 24px;">
+          <h2 style="color: #1e293b; margin: 0 0 8px; font-size: 20px;">Olá, ${buyer_name}! 🎉</h2>
+          <p style="color: #64748b; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">
+            Sua compra para <strong style="color: #1e293b;">${event.title}</strong> foi confirmada com sucesso.
+          </p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-size: 14px;">📅 Data</td>
+                <td style="padding: 8px 0; color: #1e293b; font-size: 14px; text-align: right; font-weight: 600;">${event.event_date} às ${event.event_time}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-size: 14px;">📍 Local</td>
+                <td style="padding: 8px 0; color: #1e293b; font-size: 14px; text-align: right; font-weight: 600;">${event.venue}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-size: 14px;">🏙️ Endereço</td>
+                <td style="padding: 8px 0; color: #1e293b; font-size: 14px; text-align: right; font-weight: 600;">${event.location}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-size: 14px;">🎫 Ingressos</td>
+                <td style="padding: 8px 0; color: #1e293b; font-size: 14px; text-align: right; font-weight: 600;">${quantity}x</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #64748b; font-size: 14px;">🆔 Transação</td>
+                <td style="padding: 8px 0; color: #1e293b; font-size: 14px; text-align: right; font-weight: 600;">${transactionId}</td>
+              </tr>
+            </table>
+          </div>
+          <a href="${ticketUrl}" style="display: block; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #ffffff; padding: 16px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; text-align: center;">
+            Ver Meu QR Code →
+          </a>
+          ${isNewUser ? `
+          <p style="color: #64748b; font-size: 13px; margin-top: 20px; text-align: center; line-height: 1.5;">
+            💡 Uma conta foi criada automaticamente com este e-mail. Verifique sua caixa de entrada para definir sua senha e acessar seus ingressos a qualquer momento.
+          </p>
+          ` : ''}
+        </div>
+        <div style="background: #f8fafc; padding: 16px 24px; border-radius: 0 0 12px 12px; text-align: center;">
+          <p style="color: #94a3b8; font-size: 12px; margin: 0;">EasyTicket — Ingressos simplificados</p>
+        </div>
+      </div>
+    `;
 
     if (resendApiKey) {
       try {
-        const { default: { Resend } } = await import("npm:resend@2.0.0");
-        const resend = new Resend(resendApiKey);
-
-        await resend.emails.send({
-          from: "EasyTicket <noreply@easyticket.com>",
-          to: [buyer_email],
-          subject: emailData.subject,
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-              <h1 style="color: #2563eb;">Seu acesso ao evento ${event.title} está garantido! 🎉</h1>
-              <p>Olá <strong>${buyer_name}</strong>,</p>
-              <p>Sua compra foi confirmada com sucesso!</p>
-              <div style="background: #f1f5f9; padding: 16px; border-radius: 12px; margin: 16px 0;">
-                <p><strong>📅 Data:</strong> ${event.event_date} às ${event.event_time}</p>
-                <p><strong>📍 Local:</strong> ${event.venue}, ${event.location}</p>
-                <p><strong>🎫 Quantidade:</strong> ${quantity} ingresso(s)</p>
-                <p><strong>🆔 Transação:</strong> ${transactionId}</p>
-              </div>
-              <a href="https://easyticket.com/tickets" 
-                 style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
-                Ver Meus Ingressos
-              </a>
-            </div>
-          `,
+        const resendRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "EasyTicket <onboarding@resend.dev>",
+            to: [buyer_email],
+            subject: `🎫 Seu acesso ao evento ${event.title} está garantido!`,
+            html: emailHtml,
+          }),
         });
-        emailSent = true;
-        console.log("✅ Email sent to:", buyer_email);
+
+        if (resendRes.ok) {
+          emailSent = true;
+          console.log("✅ Resend email sent to:", buyer_email);
+        } else {
+          const errBody = await resendRes.text();
+          console.error("Resend error:", errBody);
+        }
       } catch (emailErr) {
         console.error("Email send error:", emailErr);
       }
     } else {
-      console.log("📧 [MOCK EMAIL - TICKET] Email would be sent:");
-      console.log(JSON.stringify(emailData, null, 2));
+      console.log("📧 [MOCK EMAIL - TICKET] Would send to:", buyer_email);
+      console.log("Subject:", `🎫 Seu acesso ao evento ${event.title} está garantido!`);
     }
 
     return new Response(
@@ -253,8 +284,8 @@ serve(async (req) => {
         tickets: createdTickets,
         transaction_id: transactionId,
         email_sent: emailSent,
-        email_data: emailData,
         guest_user_id: guestUserId,
+        is_new_user: isNewUser,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
