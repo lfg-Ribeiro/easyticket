@@ -147,15 +147,17 @@ serve(async (req) => {
             }),
           });
 
-          if (resendRes.ok) {
+        if (resendRes.ok) {
             const resendData = await resendRes.json();
             console.log("✅ Resend email sent successfully. ID:", resendData.id);
           } else {
             const errBody = await resendRes.text();
-            console.error("❌ Resend error response:", errBody);
-            // Check for common errors
+            console.error("[RESEND ERROR]:", resendRes.status, errBody);
             if (errBody.includes("domain")) {
-              console.error("⚠️ Domain verification issue. Ensure onboarding@resend.dev is used for free accounts.");
+              console.error("[RESEND ERROR]: Domain verification issue. Use onboarding@resend.dev for free accounts.");
+            }
+            if (errBody.includes("403") || errBody.includes("Forbidden")) {
+              console.error("[RESEND ERROR]: 403 Forbidden - check API key permissions and plan limits.");
             }
           }
         } catch (emailErr) {
