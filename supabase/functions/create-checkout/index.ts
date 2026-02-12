@@ -289,6 +289,20 @@ serve(async (req) => {
       console.log("Subject:", `🎫 Seu acesso ao evento ${event.title} está garantido!`);
     }
 
+    const emailData = {
+      to: buyer_email,
+      from: "EasyTicket <onboarding@resend.dev>",
+      subject: `🎫 Seu acesso ao evento ${event.title} está garantido!`,
+      event_title: event.title,
+      event_date: event.event_date,
+      event_time: event.event_time,
+      venue: event.venue,
+      location: event.location,
+      quantity,
+      transaction_id: transactionId,
+      resend_key_exists: !!resendApiKey,
+    };
+
     return new Response(
       JSON.stringify({
         order,
@@ -296,6 +310,7 @@ serve(async (req) => {
         transaction_id: transactionId,
         email_sent: emailSent,
         email_error: emailError,
+        email_data: emailData,
         guest_user_id: guestUserId,
         is_new_user: isNewUser,
       }),
