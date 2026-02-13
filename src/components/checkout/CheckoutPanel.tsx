@@ -240,6 +240,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
           event_id: event.id,
           quantity,
           buyer_cpf: formData.cpf,
+          order_id: orderId,
         },
       });
 
