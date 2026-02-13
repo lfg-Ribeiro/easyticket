@@ -26,55 +26,59 @@ interface DBEvent {
 
 export default function OrganizerDashboard() {
   const navigate = useNavigate();
-  const { user, isOrganizer } = useAuth();
+  const { user, session, isOrganizer } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
   const [myEvents, setMyEvents] = useState<DBEvent[]>([]);
   const [totalSales, setTotalSales] = useState(0);
   const [totalFees, setTotalFees] = useState(0);
   const [ticketsSold, setTicketsSold] = useState(0);
   const [checkIns, setCheckIns] = useState(0);
+  const [totalEvents, setTotalEvents] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = useCallback(async () => {
-    if (!user) return;
+    if (!session?.access_token) return;
 
     setLoading(true);
     try {
-      // Fetch ALL events (super admin view)
+      // Fetch metrics from edge function (bypasses RLS via service role)
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-dashboard-metrics`,
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
+
+      const metrics = await res.json();
+      console.log("Dashboard metrics response:", metrics);
+
+      if (res.ok) {
+        setTotalSales(metrics.total_revenue || 0);
+        setTotalFees(metrics.total_fees || 0);
+        setTicketsSold(metrics.total_tickets || 0);
+        setCheckIns(metrics.total_checkins || 0);
+        setTotalEvents(metrics.total_events || 0);
+      } else {
+        console.error("Dashboard metrics error:", metrics);
+      }
+
+      // Fetch events list (for display)
       const { data: events } = await supabase
         .from("events")
         .select("*")
         .order("created_at", { ascending: false });
 
       setMyEvents((events as DBEvent[]) || []);
-
-      // Fetch ALL confirmed/paid orders (exclude pending)
-      const { data: orders } = await supabase
-        .from("orders")
-        .select("total_amount, service_fee, quantity, payment_status")
-        .in("payment_status", ["confirmed", "paid"]);
-
-      if (orders) {
-        setTotalSales(orders.reduce((sum: number, o: any) => sum + Number(o.total_amount), 0));
-        setTotalFees(orders.reduce((sum: number, o: any) => sum + Number(o.service_fee), 0));
-        setTicketsSold(orders.reduce((sum: number, o: any) => sum + o.quantity, 0));
-      }
-
-      // Fetch ALL check-ins
-      const { data: tickets } = await supabase
-        .from("tickets")
-        .select("check_in_status");
-
-      if (tickets) {
-        setCheckIns(tickets.filter((t: any) => t.check_in_status === "used").length);
-      }
     } catch (err) {
       console.error("Dashboard error:", err);
     } finally {
       setLoading(false);
     }
-  }, [user]);
-
+  }, [session?.access_token]);
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
@@ -96,7 +100,7 @@ export default function OrganizerDashboard() {
     { label: "Líquido a Receber", value: formatCurrency(netReceivable), icon: Wallet, trend: "" },
     { label: "Ingressos Vendidos", value: String(ticketsSold), icon: TrendingUp, trend: "" },
     { label: "Check-ins Realizados", value: String(checkIns), icon: UserCheck, trend: "", subtitle: checkInPercent },
-    { label: "Meus Eventos", value: String(myEvents.length), icon: Eye, trend: "" },
+    { label: "Meus Eventos", value: String(totalEvents), icon: Eye, trend: "" },
   ];
 
   // Map DB events to the EventListItem format
