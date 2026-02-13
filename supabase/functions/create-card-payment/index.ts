@@ -7,6 +7,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function getSupabaseAdmin() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -29,6 +36,8 @@ serve(async (req) => {
       order_id,
     } = await req.json();
 
+    console.log("💳 [CARD] Received request. order_id:", order_id, "amount:", amount, "email:", customer_email);
+
     if (!amount || !customer_cpf || !customer_name || !holder_name || !number || !expiry_month || !expiry_year || !ccv) {
       return new Response(
         JSON.stringify({ error: "Missing required fields for card payment" }),
@@ -36,6 +45,7 @@ serve(async (req) => {
       );
     }
 
+    const supabaseAdmin = getSupabaseAdmin();
     const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
     const isProduction = Deno.env.get("ASAAS_PRODUCTION") === "true";
     const baseUrl = isProduction
@@ -44,10 +54,18 @@ serve(async (req) => {
 
     if (!asaasApiKey) {
       console.log("💳 [MOCK CARD] ASAAS_API_KEY not configured. Simulating card payment.");
-      // Even in mock, send email if possible
+
+      // ALWAYS update order to confirmed
       if (order_id) {
-        await sendConfirmationEmail(order_id);
+        const { error: updateErr } = await supabaseAdmin
+          .from("orders")
+          .update({ payment_status: "confirmed" })
+          .eq("id", order_id);
+        console.log("✅ [MOCK] Order update result. Error:", updateErr || "NONE");
       }
+
+      const emailResult = order_id ? await sendConfirmationEmail(supabaseAdmin, order_id) : { sent: false, error: "no order_id" };
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -55,6 +73,8 @@ serve(async (req) => {
           payment_id: `pay_card_mock_${Date.now().toString(36)}`,
           status: "CONFIRMED",
           confirmed: true,
+          email_success: emailResult.sent,
+          email_error: emailResult.error || null,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -64,10 +84,7 @@ serve(async (req) => {
     const cleanCpf = customer_cpf.replace(/\D/g, "");
     const customerRes = await fetch(`${baseUrl}/customers`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        access_token: asaasApiKey,
-      },
+      headers: { "Content-Type": "application/json", access_token: asaasApiKey },
       body: JSON.stringify({
         name: customer_name,
         cpfCnpj: cleanCpf,
@@ -91,10 +108,7 @@ serve(async (req) => {
 
     const paymentRes = await fetch(`${baseUrl}/payments`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        access_token: asaasApiKey,
-      },
+      headers: { "Content-Type": "application/json", access_token: asaasApiKey },
       body: JSON.stringify({
         customer: customerId,
         billingType: "CREDIT_CARD",
@@ -134,9 +148,20 @@ serve(async (req) => {
 
     const isConfirmed = paymentData.status === "CONFIRMED" || paymentData.status === "RECEIVED";
 
-    // 3. If confirmed and we have order_id, update order and send email
-    if (isConfirmed && order_id) {
-      await sendConfirmationEmail(order_id);
+    // 3. ALWAYS update order status when payment succeeds (regardless of CONFIRMED vs PENDING)
+    let emailResult = { sent: false, error: "skipped" };
+    if (order_id) {
+      const newStatus = isConfirmed ? "confirmed" : "pending";
+      const { error: updateErr } = await supabaseAdmin
+        .from("orders")
+        .update({ payment_status: newStatus, transaction_id: paymentData.id })
+        .eq("id", order_id);
+      console.log(`✅ Order ${order_id} updated to '${newStatus}'. Error:`, updateErr || "NONE");
+
+      // Send email immediately if confirmed
+      if (isConfirmed) {
+        emailResult = await sendConfirmationEmail(supabaseAdmin, order_id);
+      }
     }
 
     return new Response(
@@ -145,6 +170,8 @@ serve(async (req) => {
         payment_id: paymentData.id,
         status: paymentData.status,
         confirmed: isConfirmed,
+        email_success: emailResult.sent,
+        email_error: emailResult.error || null,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -157,37 +184,36 @@ serve(async (req) => {
   }
 });
 
-async function sendConfirmationEmail(orderId: string) {
+async function sendConfirmationEmail(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  orderId: string
+): Promise<{ sent: boolean; error?: string }> {
   try {
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    // Update order status to confirmed
-    await supabaseAdmin
-      .from("orders")
-      .update({ payment_status: "confirmed" })
-      .eq("id", orderId);
-    console.log(`✅ Order ${orderId} updated to confirmed`);
+    console.log("📧 [CARD EMAIL] Starting email flow for order:", orderId);
 
     // Fetch order + event data
-    const { data: order } = await supabaseAdmin
+    const { data: order, error: fetchErr } = await supabaseAdmin
       .from("orders")
       .select("*, events(*)")
       .eq("id", orderId)
       .single();
 
-    if (!order) {
-      console.error("Order not found for email:", orderId);
-      return;
+    if (fetchErr || !order) {
+      console.error("❌ [CARD EMAIL] Order fetch failed:", fetchErr);
+      return { sent: false, error: `Order not found: ${fetchErr?.message}` };
     }
 
     const event = (order as any).events;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
     console.log("📧 [CARD EMAIL] RESEND_API_KEY exists:", resendApiKey ? "SIM" : "NÃO");
-    console.log("📧 [CARD EMAIL] Sending to:", order.buyer_email);
+    console.log("📧 [CARD EMAIL] Tentando enviar email para:", order.buyer_email);
+    console.log("📧 [CARD EMAIL] Event:", event?.title, "| Qty:", order.quantity);
+
+    if (!resendApiKey) {
+      console.log("📧 [CARD EMAIL MOCK] Sem RESEND_API_KEY. Would send to:", order.buyer_email);
+      return { sent: false, error: "RESEND_API_KEY not configured" };
+    }
 
     const emailHtml = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
@@ -218,32 +244,37 @@ async function sendConfirmationEmail(orderId: string) {
       </div>
     `;
 
-    if (resendApiKey) {
-      const resendRes = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: "EasyTicket <onboarding@resend.dev>",
-          to: [order.buyer_email],
-          subject: `🎫 Pagamento confirmado - ${event?.title || "seu evento"}!`,
-          html: emailHtml,
-        }),
-      });
+    const resendBody = {
+      from: "EasyTicket <onboarding@resend.dev>",
+      to: [order.buyer_email],
+      subject: `🎫 Pagamento confirmado - ${event?.title || "seu evento"}!`,
+      html: emailHtml,
+    };
 
-      if (resendRes.ok) {
-        const resendData = await resendRes.json();
-        console.log("✅ [CARD EMAIL] Resend sent. ID:", resendData.id);
-      } else {
-        const errBody = await resendRes.text();
-        console.error("[CARD EMAIL RESEND ERROR]:", resendRes.status, errBody);
-      }
+    console.log("📧 [CARD EMAIL] Resend payload:", JSON.stringify({ to: resendBody.to, subject: resendBody.subject }));
+
+    const resendRes = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(resendBody),
+    });
+
+    const resendText = await resendRes.text();
+    console.log("📧 [CARD EMAIL] Resend response status:", resendRes.status, "body:", resendText);
+
+    if (resendRes.ok) {
+      const resendData = JSON.parse(resendText);
+      console.log("✅ [CARD EMAIL] Resend sent successfully. ID:", resendData.id);
+      return { sent: true };
     } else {
-      console.log("📧 [CARD EMAIL MOCK] Would send to:", order.buyer_email);
+      console.error("❌ [CARD EMAIL RESEND ERROR]:", resendRes.status, resendText);
+      return { sent: false, error: `Resend ${resendRes.status}: ${resendText}` };
     }
   } catch (emailErr) {
     console.error("❌ [CARD EMAIL] Exception:", emailErr);
+    return { sent: false, error: String(emailErr) };
   }
 }
