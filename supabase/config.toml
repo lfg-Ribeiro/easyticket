@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.create-card-payment]
 verify_jwt = false
+
+[functions.get-dashboard-metrics]
+verify_jwt = false
