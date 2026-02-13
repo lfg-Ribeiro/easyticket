@@ -18,16 +18,15 @@ serve(async (req) => {
       customer_cpf,
       customer_name,
       customer_email,
-      // Card data
       holder_name,
       number,
       expiry_month,
       expiry_year,
       ccv,
-      // Order data
       event_id,
       quantity,
       buyer_cpf,
+      order_id,
     } = await req.json();
 
     if (!amount || !customer_cpf || !customer_name || !holder_name || !number || !expiry_month || !expiry_year || !ccv) {
@@ -44,14 +43,18 @@ serve(async (req) => {
       : "https://sandbox.asaas.com/api/v3";
 
     if (!asaasApiKey) {
-      // Mock mode
       console.log("💳 [MOCK CARD] ASAAS_API_KEY not configured. Simulating card payment.");
+      // Even in mock, send email if possible
+      if (order_id) {
+        await sendConfirmationEmail(order_id);
+      }
       return new Response(
         JSON.stringify({
           success: true,
           mock: true,
           payment_id: `pay_card_mock_${Date.now().toString(36)}`,
           status: "CONFIRMED",
+          confirmed: true,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -131,6 +134,11 @@ serve(async (req) => {
 
     const isConfirmed = paymentData.status === "CONFIRMED" || paymentData.status === "RECEIVED";
 
+    // 3. If confirmed and we have order_id, update order and send email
+    if (isConfirmed && order_id) {
+      await sendConfirmationEmail(order_id);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -148,3 +156,94 @@ serve(async (req) => {
     );
   }
 });
+
+async function sendConfirmationEmail(orderId: string) {
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Update order status to confirmed
+    await supabaseAdmin
+      .from("orders")
+      .update({ payment_status: "confirmed" })
+      .eq("id", orderId);
+    console.log(`✅ Order ${orderId} updated to confirmed`);
+
+    // Fetch order + event data
+    const { data: order } = await supabaseAdmin
+      .from("orders")
+      .select("*, events(*)")
+      .eq("id", orderId)
+      .single();
+
+    if (!order) {
+      console.error("Order not found for email:", orderId);
+      return;
+    }
+
+    const event = (order as any).events;
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+
+    console.log("📧 [CARD EMAIL] RESEND_API_KEY exists:", resendApiKey ? "SIM" : "NÃO");
+    console.log("📧 [CARD EMAIL] Sending to:", order.buyer_email);
+
+    const emailHtml = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+        <div style="background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); padding: 32px 24px; border-radius: 12px 12px 0 0; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🎫 EasyTicket</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">Pagamento confirmado!</p>
+        </div>
+        <div style="padding: 32px 24px;">
+          <h2 style="color: #1e293b; margin: 0 0 8px; font-size: 20px;">Olá, ${order.buyer_name}! 🎉</h2>
+          <p style="color: #64748b; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">
+            Seu pagamento via cartão para <strong style="color: #1e293b;">${event?.title || "o evento"}</strong> foi confirmado!
+          </p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; color: #64748b; font-size: 14px;">📅 Data</td><td style="padding: 8px 0; color: #1e293b; font-size: 14px; text-align: right; font-weight: 600;">${event?.event_date || ""} às ${event?.event_time || ""}</td></tr>
+              <tr><td style="padding: 8px 0; color: #64748b; font-size: 14px;">📍 Local</td><td style="padding: 8px 0; color: #1e293b; font-size: 14px; text-align: right; font-weight: 600;">${event?.venue || ""}</td></tr>
+              <tr><td style="padding: 8px 0; color: #64748b; font-size: 14px;">🎫 Ingressos</td><td style="padding: 8px 0; color: #1e293b; font-size: 14px; text-align: right; font-weight: 600;">${order.quantity}x</td></tr>
+              <tr><td style="padding: 8px 0; color: #64748b; font-size: 14px;">🆔 Transação</td><td style="padding: 8px 0; color: #1e293b; font-size: 14px; text-align: right; font-weight: 600;">${order.transaction_id || ""}</td></tr>
+            </table>
+          </div>
+          <a href="#" style="display: block; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #ffffff; padding: 16px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; text-align: center;">
+            Ver Meu QR Code →
+          </a>
+        </div>
+        <div style="background: #f8fafc; padding: 16px 24px; border-radius: 0 0 12px 12px; text-align: center;">
+          <p style="color: #94a3b8; font-size: 12px; margin: 0;">EasyTicket — Ingressos simplificados</p>
+        </div>
+      </div>
+    `;
+
+    if (resendApiKey) {
+      const resendRes = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "EasyTicket <onboarding@resend.dev>",
+          to: [order.buyer_email],
+          subject: `🎫 Pagamento confirmado - ${event?.title || "seu evento"}!`,
+          html: emailHtml,
+        }),
+      });
+
+      if (resendRes.ok) {
+        const resendData = await resendRes.json();
+        console.log("✅ [CARD EMAIL] Resend sent. ID:", resendData.id);
+      } else {
+        const errBody = await resendRes.text();
+        console.error("[CARD EMAIL RESEND ERROR]:", resendRes.status, errBody);
+      }
+    } else {
+      console.log("📧 [CARD EMAIL MOCK] Would send to:", order.buyer_email);
+    }
+  } catch (emailErr) {
+    console.error("❌ [CARD EMAIL] Exception:", emailErr);
+  }
+}

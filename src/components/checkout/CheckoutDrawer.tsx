@@ -247,6 +247,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
           event_id: event.id,
           quantity,
           buyer_cpf: formData.cpf,
+          order_id: orderId,
         },
       });
 
