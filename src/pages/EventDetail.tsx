@@ -117,27 +117,27 @@ export default function EventDetail() {
                 {event.category}
               </span>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-4">{event.title}</h1>
-              <div className="grid gap-3 mb-6">
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <Calendar className="h-5 w-5 flex-shrink-0" />
+              <div className="grid gap-2.5 mb-6">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Calendar className="h-4 w-4 flex-shrink-0 text-primary/70" />
                   <span className="capitalize">{formattedDate}</span>
                 </div>
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <Clock className="h-5 w-5 flex-shrink-0" />
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4 flex-shrink-0 text-primary/70" />
                   <span>{event.time}</span>
                 </div>
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <MapPin className="h-5 w-5 flex-shrink-0" />
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <MapPin className="h-4 w-4 flex-shrink-0 text-primary/70" />
                   <span>{event.venue}, {event.location}</span>
                 </div>
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <Users className="h-5 w-5 flex-shrink-0" />
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="h-4 w-4 flex-shrink-0 text-primary/70" />
                   <span>{event.availableTickets.toLocaleString()} ingressos disponíveis</span>
                 </div>
               </div>
               <div className="mb-8">
-                <h2 className="text-lg font-semibold text-foreground mb-2">Sobre o evento</h2>
-                <p className="text-muted-foreground leading-relaxed">{event.description}</p>
+                <h2 className="text-base font-semibold text-foreground mb-2">Sobre o evento</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">{event.description}</p>
               </div>
             </div>
           </div>
@@ -152,27 +152,27 @@ export default function EventDetail() {
               {event.category}
             </span>
             <h1 className="text-2xl font-bold text-foreground mb-4">{event.title}</h1>
-            <div className="grid gap-3 mb-6">
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <Calendar className="h-5 w-5 flex-shrink-0" />
+            <div className="grid gap-2.5 mb-6">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4 flex-shrink-0 text-primary/70" />
                 <span className="capitalize">{formattedDate}</span>
               </div>
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <Clock className="h-5 w-5 flex-shrink-0" />
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock className="h-4 w-4 flex-shrink-0 text-primary/70" />
                 <span>{event.time}</span>
               </div>
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <MapPin className="h-5 w-5 flex-shrink-0" />
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4 flex-shrink-0 text-primary/70" />
                 <span>{event.venue}, {event.location}</span>
               </div>
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <Users className="h-5 w-5 flex-shrink-0" />
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="h-4 w-4 flex-shrink-0 text-primary/70" />
                 <span>{event.availableTickets.toLocaleString()} ingressos disponíveis</span>
               </div>
             </div>
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-foreground mb-2">Sobre o evento</h2>
-              <p className="text-muted-foreground leading-relaxed">{event.description}</p>
+              <h2 className="text-base font-semibold text-foreground mb-2">Sobre o evento</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">{event.description}</p>
             </div>
           </div>
         </div>
