@@ -178,7 +178,7 @@ export default function EventDetail() {
         </div>
       </div>
 
-      <div className="fixed bottom-16 left-0 right-0 p-4 bg-background/95 backdrop-blur-lg border-t border-border md:hidden">
+      <div className="fixed bottom-16 left-0 right-0 p-4 bg-background/95 backdrop-blur-lg border-t border-border z-50 md:hidden">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-muted-foreground">A partir de</p>
