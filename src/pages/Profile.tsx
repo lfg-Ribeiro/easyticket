@@ -39,11 +39,9 @@ export default function Profile() {
     navigate("/");
   };
 
+  // Deixamos apenas o Editar Perfil, pois os outros ainda não têm função
   const menuItems = [
     { icon: User, label: "Editar perfil", action: () => setEditOpen(true) },
-    { icon: Bell, label: "Notificações", action: () => {} },
-    { icon: Settings, label: "Configurações", action: () => {} },
-    { icon: HelpCircle, label: "Ajuda e suporte", action: () => {} },
   ];
 
   const initials = user?.user_metadata?.full_name
@@ -77,24 +75,26 @@ export default function Profile() {
           </section>
         )}
 
-        {/* Menu */}
-        <section className="bg-card rounded-2xl shadow-card overflow-hidden mb-8">
-          {menuItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={item.action}
-              className="w-full flex items-center gap-4 p-4 hover:bg-secondary transition-colors border-b border-border last:border-0"
-            >
-              <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                <item.icon className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <span className="flex-1 text-left font-medium text-foreground">
-                {item.label}
-              </span>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </button>
-          ))}
-        </section>
+        {/* Menu - Só aparece se o usuário estiver logado */}
+        {user && (
+          <section className="bg-card rounded-2xl shadow-card overflow-hidden mb-8">
+            {menuItems.map((item) => (
+              <button
+                key={item.label}
+                onClick={item.action}
+                className="w-full flex items-center gap-4 p-4 hover:bg-secondary transition-colors border-b border-border last:border-0"
+              >
+                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+                  <item.icon className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <span className="flex-1 text-left font-medium text-foreground">
+                  {item.label}
+                </span>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </button>
+            ))}
+          </section>
+        )}
 
         {/* Logout */}
         {user ? (
