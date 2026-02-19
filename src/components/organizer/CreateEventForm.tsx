@@ -6,6 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -14,6 +21,19 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+
+const EVENT_CATEGORIES = [
+  "Shows",
+  "Teatro",
+  "Esportes",
+  "Tecnologia",
+  "Gastronomia",
+  "Comédia",
+  "Arte & Cultura",
+  "Educação",
+  "Negócios",
+  "Outros",
+];
 
 interface TicketBatch {
   id: string;
@@ -50,7 +70,7 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
     time: "",
     location: "",
     description: "",
-    category: "Outros",
+    category: "",
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -92,7 +112,7 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
     setCoverFile(null);
     setCoverPreview(null);
     setBatches([{ id: "1", name: "Lote 1", price: "", quantity: "" }]);
-    setFormData({ title: "", date: "", time: "", location: "", description: "", category: "Outros" });
+    setFormData({ title: "", date: "", time: "", location: "", description: "", category: "" });
   };
 
   const handleSubmit = async () => {
@@ -103,6 +123,12 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
 
     if (!formData.title || !formData.date || !formData.time || !formData.location) {
       toast({ title: "Preencha as informações básicas", variant: "destructive" });
+      setCurrentStep(1);
+      return;
+    }
+
+    if (!formData.category) {
+      toast({ title: "Selecione uma categoria para o evento", variant: "destructive" });
       setCurrentStep(1);
       return;
     }
@@ -237,6 +263,29 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
                 onChange={handleInputChange}
                 placeholder="Ex: Festival de Verão 2025"
               />
+            </div>
+
+            {/* Categoria */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">
+                <Tag className="h-4 w-4 inline mr-1" />
+                Categoria <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma categoria..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {EVENT_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -471,18 +520,20 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Taxa de serviço (5%)</span>
-                  <span className="text-foreground font-medium">R$ 5,00</span>
+                  <span className="text-foreground font-medium">
+                    {feeAbsorbed ? "Absorvida por você" : "R$ 5,00"}
+                  </span>
                 </div>
                 <div className="h-px bg-border" />
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Cliente paga</span>
-                  <span className="text-foreground font-bold">
+                <div className="flex justify-between font-semibold">
+                  <span className="text-foreground">Total pago pelo cliente</span>
+                  <span className="text-foreground">
                     {feeAbsorbed ? "R$ 100,00" : "R$ 105,00"}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Você recebe</span>
-                  <span className="text-success font-bold">
+                  <span className="text-success font-semibold">
                     {feeAbsorbed ? "R$ 95,00" : "R$ 100,00"}
                   </span>
                 </div>
@@ -503,14 +554,7 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
                 onClick={handleSubmit}
                 disabled={submitting}
               >
-                {submitting ? (
-                  <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Criar Evento
-                  </>
-                )}
+                {submitting ? "Criando..." : "Criar Evento 🎉"}
               </Button>
             </div>
           </div>

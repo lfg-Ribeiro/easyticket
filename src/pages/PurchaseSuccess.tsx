@@ -20,6 +20,9 @@ export default function PurchaseSuccess() {
   const paymentId = searchParams.get("paymentId") || "";
   const orderId = searchParams.get("orderId") || "";
 
+  // Real QR code from the ticket in the database
+  const [realQrCode, setRealQrCode] = useState<string | null>(null);
+
   const [eventData, setEventData] = useState<{
     title: string; image: string; date: string; time: string; venue: string; location: string;
   } | null>(null);
@@ -48,8 +51,22 @@ export default function PurchaseSuccess() {
         });
       }
     };
+
+    const fetchTicketQrCode = async () => {
+      if (!orderId) return;
+      await new Promise((r) => setTimeout(r, 1500));
+      const { data } = await supabase
+        .from("tickets")
+        .select("qr_code")
+        .eq("order_id", orderId)
+        .limit(1)
+        .maybeSingle();
+      if (data?.qr_code) setRealQrCode(data.qr_code);
+    };
+
     fetchEvent();
-  }, [eventId]);
+    fetchTicketQrCode();
+  }, [eventId, orderId]);
 
   // Polling for Asaas payment confirmation
   useEffect(() => {
@@ -173,7 +190,7 @@ export default function PurchaseSuccess() {
             ticketType="Pista"
             quantity={quantity}
             transactionId={transactionId}
-            qrCode={`TICKET-${transactionId.slice(-6)}`}
+            qrCode={realQrCode || `PENDING-${transactionId}`}
             status="valid"
           />
         </div>

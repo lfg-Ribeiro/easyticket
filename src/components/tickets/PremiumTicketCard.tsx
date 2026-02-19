@@ -1,4 +1,5 @@
-import { QrCode, Calendar, MapPin, Clock, Smartphone, Scissors } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { Calendar, MapPin, Clock, Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PremiumTicketCardProps {
@@ -139,29 +140,29 @@ export function PremiumTicketCard({
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">ID Transação</p>
-              <p className="text-xs font-mono text-muted-foreground">{transactionId}</p>
+              <p className="text-xs font-mono text-muted-foreground truncate">{transactionId}</p>
             </div>
           </div>
 
-          {/* Right: QR Code */}
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-24 h-24 bg-foreground rounded-xl flex items-center justify-center p-1.5">
-              <div className="grid grid-cols-8 gap-px w-full h-full">
-                {Array.from({ length: 64 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "rounded-[1px]",
-                      // Deterministic pattern based on qrCode string
-                      (qrCode.charCodeAt(i % qrCode.length) + i) % 3 !== 0
-                        ? "bg-background"
-                        : "bg-foreground"
-                    )}
-                  />
-                ))}
-              </div>
+          {/* Right: QR Code Real */}
+          <div className="flex flex-col items-center gap-2 flex-shrink-0">
+            <div
+              className={cn(
+                "w-28 h-28 rounded-xl flex items-center justify-center p-2 bg-white",
+                status === "used" && "opacity-40 grayscale"
+              )}
+            >
+              <QRCodeSVG
+                value={qrCode}
+                size={96}
+                bgColor="#ffffff"
+                fgColor="#000000"
+                level="M"
+              />
             </div>
-            <p className="text-[10px] text-muted-foreground font-mono">{qrCode}</p>
+            <p className="text-[9px] text-muted-foreground font-mono max-w-[112px] truncate text-center">
+              {qrCode.slice(0, 20)}…
+            </p>
           </div>
         </div>
       </div>
