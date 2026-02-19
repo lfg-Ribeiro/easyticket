@@ -104,7 +104,13 @@ export default function EventDetail() {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <button className="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-background transition-colors">
+        <button 
+          onClick={() => {
+            navigator.clipboard.writeText(window.location.href);
+            alert("Link do evento copiado com sucesso!");
+          }}
+          className="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-background transition-colors"
+        >
           <Share2 className="h-5 w-5" />
         </button>
       </div>
