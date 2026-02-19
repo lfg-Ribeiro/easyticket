@@ -185,9 +185,9 @@ serve(async (req) => {
 });
 
 async function sendConfirmationEmail(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: any,
   orderId: string
-): Promise<{ sent: boolean; error?: string }> {
+): Promise<{ sent: boolean; error: string }> {
   try {
     console.log("📧 [CARD EMAIL] Starting email flow for order:", orderId);
 
@@ -200,18 +200,19 @@ async function sendConfirmationEmail(
 
     if (fetchErr || !order) {
       console.error("❌ [CARD EMAIL] Order fetch failed:", fetchErr);
-      return { sent: false, error: `Order not found: ${fetchErr?.message}` };
+      return { sent: false, error: `Order not found: ${fetchErr?.message ?? "unknown"}` };
     }
 
     const event = (order as any).events;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
     console.log("📧 [CARD EMAIL] RESEND_API_KEY exists:", resendApiKey ? "SIM" : "NÃO");
-    console.log("📧 [CARD EMAIL] Tentando enviar email para:", order.buyer_email);
-    console.log("📧 [CARD EMAIL] Event:", event?.title, "| Qty:", order.quantity);
+    const o = order as any;
+    console.log("📧 [CARD EMAIL] Tentando enviar email para:", o.buyer_email);
+    console.log("📧 [CARD EMAIL] Event:", event?.title, "| Qty:", o.quantity);
 
     if (!resendApiKey) {
-      console.log("📧 [CARD EMAIL MOCK] Sem RESEND_API_KEY. Would send to:", order.buyer_email);
+      console.log("📧 [CARD EMAIL MOCK] Sem RESEND_API_KEY. Would send to:", (order as any).buyer_email);
       return { sent: false, error: "RESEND_API_KEY not configured" };
     }
 
@@ -268,7 +269,7 @@ async function sendConfirmationEmail(
     if (resendRes.ok) {
       const resendData = JSON.parse(resendText);
       console.log("✅ [CARD EMAIL] Resend sent successfully. ID:", resendData.id);
-      return { sent: true };
+      return { sent: true, error: "" };
     } else {
       console.error("❌ [CARD EMAIL RESEND ERROR]:", resendRes.status, resendText);
       return { sent: false, error: `Resend ${resendRes.status}: ${resendText}` };

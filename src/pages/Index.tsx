@@ -3,7 +3,6 @@ import { Search } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { EventCard } from "@/components/events/EventCard";
 import { CategoryFilter } from "@/components/events/CategoryFilter";
-import { categories } from "@/data/mockEvents";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import type { Event } from "@/types/event";
@@ -12,6 +11,7 @@ const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [events, setEvents] = useState<Event[]>([]);
+  const [categories, setCategories] = useState<string[]>(["Todos"]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -59,6 +59,10 @@ const Index = () => {
           };
         });
         setEvents(mapped);
+
+        // Build categories dynamically from the events in the database
+        const uniqueCats = Array.from(new Set(mapped.map((e) => e.category).filter(Boolean)));
+        setCategories(["Todos", ...uniqueCats]);
       }
       setLoading(false);
     };
