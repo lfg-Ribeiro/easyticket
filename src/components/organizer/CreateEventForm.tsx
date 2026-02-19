@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 const EVENT_CATEGORIES = [
+  "Festa Universitária",
   "Shows",
   "Teatro",
   "Esportes",
@@ -30,8 +31,6 @@ const EVENT_CATEGORIES = [
   "Gastronomia",
   "Comédia",
   "Arte & Cultura",
-  "Educação",
-  "Negócios",
   "Outros",
 ];
 
