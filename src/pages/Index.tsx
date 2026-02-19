@@ -33,6 +33,7 @@ const Index = () => {
           ticket_batches (price, available_quantity)
         `)
         .eq("published", true)
+        .gte("event_date", new Date().toISOString().split('T')[0])
         .order("event_date", { ascending: true });
 
       if (data) {
