@@ -14,11 +14,14 @@ export default function MyTickets() {
   useEffect(() => {
     const fetchTickets = async () => {
       if (!user?.email) {
+        console.log("[MyTickets] No user email, skipping fetch");
         setLoading(false);
         return;
       }
 
-      const { data } = await supabase
+      console.log("[MyTickets] Fetching tickets for:", user.email);
+
+      const { data, error } = await supabase
         .from("tickets")
         .select(`
           id, qr_code, check_in_status, holder_name, created_at,
@@ -30,6 +33,8 @@ export default function MyTickets() {
         `)
         .eq("holder_email", user.email)
         .order("created_at", { ascending: false });
+
+      console.log("[MyTickets] Query result:", { count: data?.length, error });
 
       if (data) {
         const mapped: TicketType[] = data.map((t: any) => ({
