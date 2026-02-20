@@ -29,6 +29,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
   const [pixPaymentId, setPixPaymentId] = useState("");
   const [pixOrderId, setPixOrderId] = useState("");
   const [pixTransactionId, setPixTransactionId] = useState("");
+  const [pixTicketQrCode, setPixTicketQrCode] = useState("");
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const countdown = useCountdown(15 * 60);
   const [formData, setFormData] = useState({
@@ -93,7 +94,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     return data;
   };
 
-  const navigateToSuccess = (txn: string, ordId?: string, pmtId?: string) => {
+  const navigateToSuccess = (txn: string, ordId?: string, pmtId?: string, qrCode?: string) => {
     const params = new URLSearchParams({
       eventId: event.id,
       name: formData.name,
@@ -103,6 +104,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     });
     if (pmtId || pixPaymentId) params.set("paymentId", pmtId || pixPaymentId);
     if (ordId || pixOrderId) params.set("orderId", ordId || pixOrderId);
+    if (qrCode) params.set("qrCode", qrCode);
     navigate(`/purchase-success?${params.toString()}`);
   };
 
@@ -117,8 +119,10 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       const checkoutResult = await createCheckout();
       const orderId = checkoutResult.order?.id;
       const txnId = checkoutResult.transaction_id;
+      const firstQr = checkoutResult.tickets?.[0]?.qr_code || "";
       setPixOrderId(orderId || "");
       setPixTransactionId(txnId || "");
+      setPixTicketQrCode(firstQr);
 
       // 2. Generate PIX via Asaas
       const { data, error } = await supabase.functions.invoke("create-pix-payment", {
@@ -157,7 +161,6 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
   };
 
   const handleCheckoutSuccess = (result: any) => {
-    // Email toast + console log
     console.log("📧 [EMAIL DATA]", {
       to: formData.email,
       event: event.title,
@@ -166,7 +169,8 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       emailData: result.email_data,
     });
     toast({ title: `📧 E-mail de confirmação enviado para ${formData.email}` });
-    navigateToSuccess(result.transaction_id, result.order?.id);
+    const firstQrCode = result.tickets?.[0]?.qr_code || "";
+    navigateToSuccess(result.transaction_id, result.order?.id, undefined, firstQrCode);
   };
 
   const handleJaPaguei = async () => {
@@ -179,7 +183,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       if (error) throw error;
       if (data?.status === "confirmed") {
         toast({ title: "Pagamento confirmado! 🎉" });
-        navigateToSuccess(pixTransactionId, pixOrderId, pixPaymentId);
+        navigateToSuccess(pixTransactionId, pixOrderId, pixPaymentId, pixTicketQrCode);
       } else {
         toast({ title: "Pagamento ainda não confirmado. Aguarde alguns instantes.", variant: "destructive" });
       }
@@ -192,7 +196,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
 
   const handleConfirmPayment = async () => {
     // PIX: order already created, just navigate to success page for polling
-    navigateToSuccess(pixTransactionId, pixOrderId, pixPaymentId);
+    navigateToSuccess(pixTransactionId, pixOrderId, pixPaymentId, pixTicketQrCode);
   };
 
   const formatCardNumber = (value: string) => {
@@ -247,7 +251,14 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       if (error) throw error;
       if (data?.confirmed || data?.status === "CONFIRMED" || data?.status === "RECEIVED") {
         toast({ title: "Pagamento aprovado! 🎉" });
-        navigateToSuccess(txnId, orderId);
+        // Card checkout: tickets were already created by create-checkout, fetch qr_code
+        const { data: ticketData } = await supabase
+          .from("tickets")
+          .select("qr_code")
+          .eq("order_id", orderId)
+          .limit(1)
+          .maybeSingle();
+        navigateToSuccess(txnId, orderId, undefined, ticketData?.qr_code || "");
       } else {
         toast({ title: "Pagamento não aprovado. Verifique os dados do cartão.", variant: "destructive" });
         setStep("form");

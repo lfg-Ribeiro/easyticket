@@ -195,7 +195,7 @@ serve(async (req) => {
     let emailSent = false;
     let emailError: string | null = null;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    const ticketUrl = "https://easyticket-rouge.vercel.app/meus-ingressos";
+    const ticketUrl = "https://easyticket-rouge.vercel.app/tickets";
 
     const emailHtml = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">

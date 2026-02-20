@@ -19,9 +19,10 @@ export default function PurchaseSuccess() {
   const transactionId = searchParams.get("txn") || `TXN-${Date.now().toString(36).toUpperCase()}`;
   const paymentId = searchParams.get("paymentId") || "";
   const orderId = searchParams.get("orderId") || "";
+  const qrCodeFromUrl = searchParams.get("qrCode") || "";
 
-  // Real QR code from the ticket in the database
-  const [realQrCode, setRealQrCode] = useState<string | null>(null);
+  // Real QR code: prefer URL param, fallback to DB fetch
+  const [realQrCode, setRealQrCode] = useState<string | null>(qrCodeFromUrl || null);
 
   const [eventData, setEventData] = useState<{
     title: string; image: string; date: string; time: string; venue: string; location: string;
@@ -53,6 +54,8 @@ export default function PurchaseSuccess() {
     };
 
     const fetchTicketQrCode = async () => {
+      // Skip if we already have a qr_code from URL
+      if (realQrCode) return;
       if (!orderId) return;
       await new Promise((r) => setTimeout(r, 1500));
       const { data } = await supabase
