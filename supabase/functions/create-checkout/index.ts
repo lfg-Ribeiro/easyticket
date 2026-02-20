@@ -195,8 +195,7 @@ serve(async (req) => {
     let emailSent = false;
     let emailError: string | null = null;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const ticketUrl = supabaseUrl ? `${supabaseUrl.replace('.supabase.co', '')}/tickets` : "https://easyticket.com/tickets";
+    const ticketUrl = "https://easyticket-rouge.vercel.app/meus-ingressos";
 
     const emailHtml = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
