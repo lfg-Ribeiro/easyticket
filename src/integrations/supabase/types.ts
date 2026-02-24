@@ -279,6 +279,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_sales_by_day: {
+        Args: { end_date: string; start_date: string }
+        Returns: {
+          revenue: number
+          sale_date: string
+          tickets_sold: number
+        }[]
+      }
+      get_sales_by_hour: {
+        Args: { end_date: string; start_date: string }
+        Returns: {
+          revenue: number
+          sale_hour: number
+          tickets_sold: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
