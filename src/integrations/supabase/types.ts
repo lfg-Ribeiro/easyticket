@@ -204,6 +204,7 @@ export type Database = {
           id: string
           order_id: string
           qr_code: string
+          user_id: string | null
         }
         Insert: {
           batch_id?: string | null
@@ -216,6 +217,7 @@ export type Database = {
           id?: string
           order_id: string
           qr_code: string
+          user_id?: string | null
         }
         Update: {
           batch_id?: string | null
@@ -228,6 +230,7 @@ export type Database = {
           id?: string
           order_id?: string
           qr_code?: string
+          user_id?: string | null
         }
         Relationships: [
           {
