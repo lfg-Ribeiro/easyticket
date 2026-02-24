@@ -19,7 +19,7 @@ export default function MyTickets() {
         return;
       }
 
-      console.log("[MyTickets] Fetching tickets for:", user.email);
+      console.log("[MyTickets] Fetching tickets for user:", user.id);
 
       const { data, error } = await supabase
         .from("tickets")
@@ -31,7 +31,7 @@ export default function MyTickets() {
             location, venue, cover_image_url, category
           )
         `)
-        .eq("holder_email", user.email)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       console.log("[MyTickets] Query result:", { count: data?.length, error });

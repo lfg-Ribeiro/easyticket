@@ -159,6 +159,7 @@ serve(async (req) => {
         holder_name: buyer_name,
         holder_email: buyer_email,
         check_in_status: "valid",
+        user_id: guestUserId || null,
       });
     }
 
