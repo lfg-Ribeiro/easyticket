@@ -158,6 +158,7 @@ serve(async (req) => {
         qr_code: qrCode,
         holder_name: buyer_name,
         holder_email: buyer_email,
+        holder_cpf: buyer_cpf || null,
         check_in_status: "valid",
         user_id: guestUserId || null,
       });
