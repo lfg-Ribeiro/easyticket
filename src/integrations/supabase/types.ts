@@ -199,6 +199,7 @@ export type Database = {
           checked_in_at: string | null
           created_at: string
           event_id: string
+          holder_cpf: string | null
           holder_email: string
           holder_name: string
           id: string
@@ -212,6 +213,7 @@ export type Database = {
           checked_in_at?: string | null
           created_at?: string
           event_id: string
+          holder_cpf?: string | null
           holder_email: string
           holder_name: string
           id?: string
@@ -225,6 +227,7 @@ export type Database = {
           checked_in_at?: string | null
           created_at?: string
           event_id?: string
+          holder_cpf?: string | null
           holder_email?: string
           holder_name?: string
           id?: string
@@ -306,6 +309,10 @@ export type Database = {
         Returns: boolean
       }
       is_event_organizer: { Args: { _event_id: string }; Returns: boolean }
+      transfer_ticket: {
+        Args: { p_new_cpf: string; p_ticket_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "organizer" | "user"

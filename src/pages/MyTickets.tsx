@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { TicketCard } from "@/components/tickets/TicketCard";
+import { TicketDetailModal } from "@/components/tickets/TicketDetailModal";
 import { Ticket } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,9 +11,10 @@ export default function MyTickets() {
   const { user } = useAuth();
   const [tickets, setTickets] = useState<TicketType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
       if (!user?.email) {
         console.log("[MyTickets] No user email, skipping fetch");
         setLoading(false);
@@ -65,10 +67,11 @@ export default function MyTickets() {
         setTickets(mapped);
       }
       setLoading(false);
-    };
-
-    fetchTickets();
   }, [user]);
+
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets]);
 
   const validTickets = tickets.filter((t) => t.status === "valid");
   const pastTickets = tickets.filter((t) => t.status !== "valid");
@@ -96,7 +99,9 @@ export default function MyTickets() {
                 </h2>
                 <div className="space-y-3 stagger-children">
                   {validTickets.map((ticket) => (
-                    <TicketCard key={ticket.id} ticket={ticket} />
+                    <div key={ticket.id} onClick={() => { setSelectedTicket(ticket); setModalOpen(true); }}>
+                      <TicketCard ticket={ticket} />
+                    </div>
                   ))}
                 </div>
               </section>
@@ -108,7 +113,9 @@ export default function MyTickets() {
                 </h2>
                 <div className="space-y-3 stagger-children">
                   {pastTickets.map((ticket) => (
-                    <TicketCard key={ticket.id} ticket={ticket} />
+                    <div key={ticket.id} onClick={() => { setSelectedTicket(ticket); setModalOpen(true); }}>
+                      <TicketCard ticket={ticket} />
+                    </div>
                   ))}
                 </div>
               </section>
@@ -128,6 +135,13 @@ export default function MyTickets() {
           </div>
         )}
       </div>
+
+      <TicketDetailModal
+        ticket={selectedTicket}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        onTransferred={fetchTickets}
+      />
     </MainLayout>
   );
 }
