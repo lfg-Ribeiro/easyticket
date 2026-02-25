@@ -1,73 +1,43 @@
-# Welcome to your Lovable project
+# EasyTicket 🎟️
 
-## Project info
+O **EasyTicket** é uma plataforma moderna e segura para venda, gestão e validação de ingressos digitais. Nascido da necessidade de modernizar a experiência de eventos no Brasil, o projeto foca em combater fraudes e facilitar a vida tanto do organizador quanto do comprador final.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🎯 O Propósito (Por que o EasyTicket existe?)
 
-## How can I edit this code?
+O mercado de eventos sofre com dois grandes problemas: a falsificação de ingressos (prints de QR Codes) e a dificuldade no repasse seguro de titularidade quando alguém desiste de ir. 
 
-There are several ways of editing your application.
+O EasyTicket foi arquitetado para resolver isso através de:
+* **Identidade Real:** Uso do **CPF** como chave primária de segurança para todas as contas e ingressos.
+* **Repasse Antifraude:** Um usuário só consegue transferir um ingresso para outro CPF que já esteja validado na plataforma, transferindo a propriedade de forma oficial no banco de dados e invalidando o ingresso anterior.
+* **Check-in Dinâmico:** QR Codes gerados a partir de hashes criptográficos únicos que se comunicam em tempo real com o banco de dados durante a validação na portaria.
 
-**Use Lovable**
+## ✨ Principais Funcionalidades
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+* **Para o Comprador:**
+  * Compra fluida e rápida via Pix ou Cartão de Crédito.
+  * Carteira digital ("Meus Ingressos") com acesso offline/online aos QR Codes.
+  * Sistema de transferência de titularidade de ingressos (P2P) integrado.
 
-Changes made via Lovable will be committed automatically to this repo.
+* **Para o Organizador:**
+  * Painel de controle (Dashboard) com métricas financeiras em tempo real.
+  * Gráficos de performance de vendas (por hora e por dia).
+  * Aplicativo web de escaneamento de QR Code nativo, com bloqueio automático de ingressos duplicados.
 
-**Use your preferred IDE**
+## 🛠️ Stack de Tecnologias
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+O projeto foi construído priorizando performance, escalabilidade e segurança de dados, utilizando as melhores ferramentas do ecossistema atual:
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+**Frontend (Interface e Experiência):**
+* **[React](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/):** Para uma interface reativa e código tipado à prova de falhas.
+* **[Vite](https://vitejs.dev/):** Ferramenta de build super rápida.
+* **[Tailwind CSS](https://tailwindcss.com/) & [shadcn-ui](https://ui.shadcn.com/):** Para um design limpo, moderno e responsivo em qualquer dispositivo (mobile-first).
 
-Follow these steps:
+**Backend (Motor e Segurança):**
+* **[Supabase](https://supabase.com/):** Todo o coração do sistema roda aqui.
+  * **PostgreSQL:** Banco de dados relacional robusto.
+  * **Row Level Security (RLS):** Políticas de segurança estritas onde cada usuário só acessa o que é seu.
+  * **Edge Functions & RPCs:** Lógicas complexas (como validação e transferência) rodando direto no servidor para evitar manipulações no lado do cliente.
+* **[Vercel](https://vercel.com/):** Hospedagem em nuvem de alta disponibilidade.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+---
+*Status: Em desenvolvimento fechado para lançamento comercial futuro.*
