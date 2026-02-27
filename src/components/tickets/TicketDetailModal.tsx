@@ -54,16 +54,21 @@ export function TicketDetailModal({ ticket, open, onOpenChange, onTransferred }:
     }
 
     setTransferring(true);
+    const rawCpfToSend = transferCpf.replace(/\D/g, "");
+    console.log("[Transfer] Sending CPF (digits only):", rawCpfToSend, "ticket:", ticket.id);
     try {
       const { data, error } = await supabase.rpc("transfer_ticket", {
         p_ticket_id: ticket.id,
-        p_new_cpf: transferCpf,
+        p_new_cpf: rawCpfToSend,
       });
+
+      console.log("[Transfer] Response:", { data, error });
 
       if (error) throw error;
 
       const result = data as any;
       if (result?.error) {
+        console.warn("[Transfer] Backend error:", result.error);
         toast({ title: result.error, variant: "destructive" });
       } else {
         toast({ title: `Ingresso transferido para ${result.new_holder || "novo titular"}! 🎉` });
