@@ -36,7 +36,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate("/organizer", { replace: true });
+      navigate("/", { replace: true });
     }
   }, [user, loading, navigate]);
 
