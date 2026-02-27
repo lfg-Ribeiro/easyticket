@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Ticket, Mail, Lock, User, ArrowRight } from "lucide-react";
+import { Ticket, Mail, Lock, User, ArrowRight, Phone, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,25 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [cpf, setCpf] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  };
+
+  const formatCpf = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    if (digits.length <= 9)
+      return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  };
 
   useEffect(() => {
     if (!loading && user) {
@@ -49,11 +67,21 @@ export default function Auth() {
           toast({ title: "Informe seu nome completo", variant: "destructive" });
           return;
         }
+        const cpfDigits = cpf.replace(/\D/g, "");
+        if (cpfDigits.length !== 11) {
+          toast({ title: "Informe um CPF válido", variant: "destructive" });
+          return;
+        }
+        const phoneDigits = phone.replace(/\D/g, "");
+        if (phoneDigits.length < 10) {
+          toast({ title: "Informe um telefone válido", variant: "destructive" });
+          return;
+        }
         if (password.length < 6) {
           toast({ title: "A senha deve ter pelo menos 6 caracteres", variant: "destructive" });
           return;
         }
-        const { error } = await signUp(email, password, fullName);
+        const { error } = await signUp(email, password, fullName.trim(), cpfDigits, phoneDigits);
         if (error) {
           if (error.message.includes("already registered")) {
             toast({ title: "Este e-mail já está cadastrado", variant: "destructive" });
@@ -109,6 +137,44 @@ export default function Auth() {
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Seu nome"
                   className="pl-10"
+                />
+              </div>
+            </div>
+          )}
+
+          {mode === "signup" && (
+            <div className="space-y-2">
+              <Label htmlFor="cpf" className="text-sm font-medium">
+                CPF
+              </Label>
+              <div className="relative">
+                <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="cpf"
+                  value={cpf}
+                  onChange={(e) => setCpf(formatCpf(e.target.value))}
+                  placeholder="000.000.000-00"
+                  className="pl-10"
+                  inputMode="numeric"
+                />
+              </div>
+            </div>
+          )}
+
+          {mode === "signup" && (
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-sm font-medium">
+                Telefone
+              </Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(formatPhone(e.target.value))}
+                  placeholder="(11) 99999-9999"
+                  className="pl-10"
+                  inputMode="numeric"
                 />
               </div>
             </div>
