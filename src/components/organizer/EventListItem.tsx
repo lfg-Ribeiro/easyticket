@@ -1,22 +1,38 @@
-import { MoreVertical, Eye, Edit, Trash2 } from "lucide-react";
+import { MoreVertical, Eye, Copy, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { Event } from "@/types/event";
+import { toast } from "@/hooks/use-toast";
 
 interface EventListItemProps {
-  event: Event;
+  event: {
+    id: string;
+    title: string;
+    date: string;
+    time: string;
+    image: string;
+  };
   soldCount: number;
+  revenue: number;
 }
 
-export function EventListItem({ event, soldCount }: EventListItemProps) {
-  const revenue = new Intl.NumberFormat("pt-BR", {
+export function EventListItem({ event, soldCount, revenue }: EventListItemProps) {
+  const navigate = useNavigate();
+
+  const formattedRevenue = new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-  }).format(event.price * soldCount);
+  }).format(revenue);
+
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/event/${event.id}`;
+    navigator.clipboard.writeText(url);
+    toast({ title: "Link copiado!", description: "URL do evento copiada para a área de transferência." });
+  };
 
   return (
     <div className="bg-card rounded-2xl shadow-card p-4 flex gap-4">
@@ -37,17 +53,13 @@ export function EventListItem({ event, soldCount }: EventListItemProps) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate(`/event/${event.id}`)}>
                 <Eye className="h-4 w-4 mr-2" />
                 Visualizar
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Edit className="h-4 w-4 mr-2" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Excluir
+              <DropdownMenuItem onClick={handleCopyLink}>
+                <Copy className="h-4 w-4 mr-2" />
+                Copiar Link
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -59,7 +71,7 @@ export function EventListItem({ event, soldCount }: EventListItemProps) {
           <span className="text-muted-foreground">
             <span className="font-semibold text-foreground">{soldCount}</span> vendidos
           </span>
-          <span className="font-semibold text-primary">{revenue}</span>
+          <span className="font-semibold text-primary">{formattedRevenue}</span>
         </div>
       </div>
     </div>

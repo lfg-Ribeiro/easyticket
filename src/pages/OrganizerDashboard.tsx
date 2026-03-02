@@ -24,11 +24,16 @@ interface DBEvent {
   published: boolean;
 }
 
+interface EventStats {
+  [eventId: string]: { sold: number; revenue: number };
+}
+
 export default function OrganizerDashboard() {
   const navigate = useNavigate();
   const { user, session, isOrganizer } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
   const [myEvents, setMyEvents] = useState<DBEvent[]>([]);
+  const [eventStats, setEventStats] = useState<EventStats>({});
   const [totalSales, setTotalSales] = useState(0);
   const [totalFees, setTotalFees] = useState(0);
   const [ticketsSold, setTicketsSold] = useState(0);
@@ -73,6 +78,22 @@ export default function OrganizerDashboard() {
         .order("created_at", { ascending: false });
 
       setMyEvents((events as DBEvent[]) || []);
+
+      // Fetch per-event stats (sold count + revenue from confirmed orders)
+      if (events && events.length > 0) {
+        const { data: orders } = await supabase
+          .from("orders")
+          .select("event_id, quantity, total_amount, payment_status")
+          .in("payment_status", ["confirmed", "paid"]);
+
+        const stats: EventStats = {};
+        (orders || []).forEach((o: any) => {
+          if (!stats[o.event_id]) stats[o.event_id] = { sold: 0, revenue: 0 };
+          stats[o.event_id].sold += o.quantity;
+          stats[o.event_id].revenue += Number(o.total_amount);
+        });
+        setEventStats(stats);
+      }
     } catch (err) {
       console.error("Dashboard error:", err);
     } finally {
@@ -109,14 +130,7 @@ export default function OrganizerDashboard() {
     title: e.title,
     date: e.event_date,
     time: e.event_time,
-    location: e.location,
-    venue: e.venue,
     image: e.cover_image_url || "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop",
-    price: 0,
-    category: e.category,
-    availableTickets: 0,
-    organizer: "",
-    description: "",
   }));
 
   return (
@@ -177,7 +191,12 @@ export default function OrganizerDashboard() {
           ) : eventListItems.length > 0 ? (
             <div className="space-y-4">
               {eventListItems.map((event) => (
-                <EventListItem key={event.id} event={event} soldCount={0} />
+                <EventListItem
+                  key={event.id}
+                  event={event}
+                  soldCount={eventStats[event.id]?.sold || 0}
+                  revenue={eventStats[event.id]?.revenue || 0}
+                />
               ))}
             </div>
           ) : (
