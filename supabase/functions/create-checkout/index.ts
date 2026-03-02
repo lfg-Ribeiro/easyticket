@@ -52,15 +52,17 @@ serve(async (req) => {
         } else if (newUser?.user) {
           guestUserId = newUser.user.id;
 
-          // E-mail 1: Magic link for account access (fired in parallel with ticket email below)
-          const magicLinkPromise = supabaseAdmin.auth.admin.generateLink({
-            type: "magiclink",
+          // Generate recovery link so the guest can set a password
+          const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+            type: "recovery",
             email: buyer_email,
           });
-          magicLinkPromise.then(({ error }) => {
-            if (error) console.error("Magic link error:", error);
-            else console.log(`🔑 [ACCESS EMAIL] Magic link sent to ${buyer_email}`);
-          });
+          if (linkError) {
+            console.error("Recovery link error:", linkError);
+          } else {
+            console.log(`🔑 [RECOVERY LINK] Generated for ${buyer_email}`);
+          }
+          var recoveryUrl = linkData?.properties?.action_link || "";
         }
       }
     } catch (userErr) {
@@ -237,10 +239,15 @@ serve(async (req) => {
           <a href="${ticketUrl}" style="display: block; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #ffffff; padding: 16px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; text-align: center;">
             Ver Meu QR Code →
           </a>
-          ${isNewUser ? `
-          <p style="color: #64748b; font-size: 13px; margin-top: 20px; text-align: center; line-height: 1.5;">
-            💡 Uma conta foi criada automaticamente com este e-mail. Verifique sua caixa de entrada para definir sua senha e acessar seus ingressos a qualquer momento.
-          </p>
+          ${isNewUser && recoveryUrl ? `
+          <div style="margin-top: 20px; text-align: center;">
+            <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin-bottom: 12px;">
+              💡 Uma conta foi criada automaticamente com este e-mail. Cadastre sua senha para acessar seus ingressos a qualquer momento.
+            </p>
+            <a href="${recoveryUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+              Cadastrar minha senha →
+            </a>
+          </div>
           ` : ''}
         </div>
         <div style="background: #f8fafc; padding: 16px 24px; border-radius: 0 0 12px 12px; text-align: center;">

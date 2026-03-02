@@ -238,6 +238,38 @@ async function sendConfirmationEmail(
           <a href="https://easyticket-rouge.vercel.app/tickets" style="display: block; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #ffffff; padding: 16px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; text-align: center;">
             Ver Meu QR Code →
           </a>
+          ${await (async () => {
+            // Check if this is a new guest user and generate recovery link
+            try {
+              const supabaseAdmin = getSupabaseAdmin();
+              const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+              const guestUser = existingUsers?.users?.find(
+                (u: any) => u.email?.toLowerCase() === order.buyer_email.toLowerCase()
+              );
+              if (guestUser) {
+                const createdAt = new Date(guestUser.created_at).getTime();
+                const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+                if (createdAt > fiveMinAgo) {
+                  const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+                    type: "recovery",
+                    email: order.buyer_email,
+                  });
+                  const recoveryUrl = linkData?.properties?.action_link || "";
+                  if (recoveryUrl) {
+                    return `<div style="margin-top: 20px; text-align: center;">
+                      <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin-bottom: 12px;">
+                        💡 Uma conta foi criada automaticamente. Cadastre sua senha para acessar seus ingressos.
+                      </p>
+                      <a href="${recoveryUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+                        Cadastrar minha senha →
+                      </a>
+                    </div>`;
+                  }
+                }
+              }
+            } catch (e) { console.error("Recovery link in card email error:", e); }
+            return "";
+          })()}
         </div>
         <div style="background: #f8fafc; padding: 16px 24px; border-radius: 0 0 12px 12px; text-align: center;">
           <p style="color: #94a3b8; font-size: 12px; margin: 0;">EasyTicket — Ingressos simplificados</p>
