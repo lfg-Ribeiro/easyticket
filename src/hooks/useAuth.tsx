@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,11 +20,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isOrganizer, setIsOrganizer] = useState(false);
 
+  const recoveryRedirected = useRef(false);
+
   useEffect(() => {
+    // Process hash tokens BEFORE auth listener to avoid losing them
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+      // Supabase JS client auto-detects hash tokens on init, just ensure it's processed
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+
+        if (event === "PASSWORD_RECOVERY" && !recoveryRedirected.current) {
+          recoveryRedirected.current = true;
+          window.location.href = "/update-password";
+          return;
+        }
 
         if (session?.user) {
           setTimeout(() => {
