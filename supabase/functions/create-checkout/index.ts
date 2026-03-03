@@ -21,7 +21,7 @@ serve(async (req) => {
   }
 
   try {
-    const { event_id, batch_id, buyer_name, buyer_email, buyer_cpf, quantity, payment_method } = await req.json();
+    const { event_id, batch_id, buyer_name, buyer_email, buyer_cpf, buyer_phone, quantity, payment_method } = await req.json();
 
     if (!event_id || !buyer_name || !buyer_email || !quantity) {
       return new Response(
@@ -35,34 +35,41 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // ── Guest Checkout: Silent user creation with temp password ──
+    // ── Guest Checkout: Silent user creation ──
     let guestUserId: string | null = null;
     let isNewUser = false;
-    let tempPassword: string | null = null;
+    const tempPassword = generateTempPassword(); // single source of truth
+
     try {
-      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find(
-        (u: any) => u.email?.toLowerCase() === buyer_email.toLowerCase()
-      );
+      // Try to create user directly — if exists, Supabase returns an error
+      const cleanCpf = buyer_cpf ? buyer_cpf.replace(/\D/g, "") : null;
+      const cleanPhone = buyer_phone ? buyer_phone.replace(/\D/g, "") : null;
 
-      if (existingUser) {
-        guestUserId = existingUser.id;
-      } else {
-        isNewUser = true;
-        tempPassword = generateTempPassword();
-        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-          email: buyer_email,
-          password: tempPassword,
-          email_confirm: true,
-          user_metadata: { full_name: buyer_name },
-        });
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email: buyer_email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: buyer_name,
+          cpf: cleanCpf || undefined,
+          phone: cleanPhone || undefined,
+        },
+      });
 
-        if (createError) {
-          console.error("Silent user creation error:", createError);
-        } else if (newUser?.user) {
-          guestUserId = newUser.user.id;
-          console.log(`🔑 [GUEST] Created user ${buyer_email} with temp password`);
+      if (createError) {
+        // User already exists — find them
+        console.log(`👤 [GUEST] User ${buyer_email} already exists, finding...`);
+        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+        const existingUser = existingUsers?.users?.find(
+          (u: any) => u.email?.toLowerCase() === buyer_email.toLowerCase()
+        );
+        if (existingUser) {
+          guestUserId = existingUser.id;
         }
+      } else if (newUser?.user) {
+        isNewUser = true;
+        guestUserId = newUser.user.id;
+        console.log(`🔑 [GUEST] Created user ${buyer_email} with temp password: ${tempPassword}`);
       }
     } catch (userErr) {
       console.error("Guest user flow error:", userErr);
@@ -201,20 +208,35 @@ serve(async (req) => {
     const ticketUrl = "https://easyticket-rouge.vercel.app/tickets";
     const loginUrl = "https://easyticket-rouge.vercel.app/auth";
 
-    const guestAccountBlock = isNewUser && tempPassword
-      ? `<div style="margin-top: 20px; background: #fffbeb; border: 1px solid #fbbf24; border-radius: 10px; padding: 20px; text-align: center;">
-           <p style="color: #92400e; font-size: 14px; font-weight: 600; margin: 0 0 8px;">🔐 Sua conta foi criada automaticamente</p>
-           <p style="color: #78716c; font-size: 13px; line-height: 1.5; margin: 0 0 12px;">
-             Use a senha provisória abaixo para acessar seus ingressos. Recomendamos alterá-la após o primeiro acesso.
-           </p>
-           <div style="background: #ffffff; border: 2px dashed #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
-             <span style="font-family: monospace; font-size: 20px; font-weight: 700; color: #1e293b; letter-spacing: 2px;">${tempPassword}</span>
-           </div>
-           <a href="${loginUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
-             Acessar minha conta →
-           </a>
-         </div>`
-      : '';
+    let guestAccountBlock = "";
+    if (isNewUser) {
+      // New user → show temp password
+      guestAccountBlock = `
+        <div style="margin-top: 20px; background: #fffbeb; border: 1px solid #fbbf24; border-radius: 10px; padding: 20px; text-align: center;">
+          <p style="color: #92400e; font-size: 14px; font-weight: 600; margin: 0 0 8px;">🔐 Sua conta foi criada automaticamente</p>
+          <p style="color: #78716c; font-size: 13px; line-height: 1.5; margin: 0 0 12px;">
+            Use a senha provisória abaixo para acessar seus ingressos. Recomendamos alterá-la após o primeiro acesso.
+          </p>
+          <div style="background: #ffffff; border: 2px dashed #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <span style="font-family: monospace; font-size: 20px; font-weight: 700; color: #1e293b; letter-spacing: 2px;">${tempPassword}</span>
+          </div>
+          <a href="${loginUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+            Acessar minha conta →
+          </a>
+        </div>`;
+    } else if (guestUserId) {
+      // Existing user → inform they already have an account
+      guestAccountBlock = `
+        <div style="margin-top: 20px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px; padding: 20px; text-align: center;">
+          <p style="color: #166534; font-size: 14px; font-weight: 600; margin: 0 0 8px;">✅ Você já possui uma conta no EasyTicket</p>
+          <p style="color: #78716c; font-size: 13px; line-height: 1.5; margin: 0 0 12px;">
+            Acesse usando sua senha cadastrada para ver seus ingressos.
+          </p>
+          <a href="${loginUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+            Acessar minha conta →
+          </a>
+        </div>`;
+    }
 
     const emailHtml = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
