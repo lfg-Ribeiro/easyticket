@@ -34,6 +34,7 @@ serve(async (req) => {
       customer_cpf,
       customer_name,
       customer_email,
+      customer_phone,
       holder_name,
       number,
       expiry_month,
@@ -55,6 +56,47 @@ serve(async (req) => {
     }
 
     const supabaseAdmin = getSupabaseAdmin();
+
+    // ── Guest user creation (single temp password) ──
+    let guestUserId: string | null = null;
+    let isNewUser = false;
+    const tempPassword = generateTempPassword();
+
+    if (customer_email) {
+      try {
+        const cleanCpf = customer_cpf ? customer_cpf.replace(/\D/g, "") : null;
+        const cleanPhone = customer_phone ? customer_phone.replace(/\D/g, "") : null;
+
+        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email: customer_email,
+          password: tempPassword,
+          email_confirm: true,
+          user_metadata: {
+            full_name: customer_name,
+            cpf: cleanCpf || undefined,
+            phone: cleanPhone || undefined,
+          },
+        });
+
+        if (createError) {
+          console.log(`👤 [CARD GUEST] User ${customer_email} already exists`);
+          const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+          const existingUser = existingUsers?.users?.find(
+            (u: any) => u.email?.toLowerCase() === customer_email.toLowerCase()
+          );
+          if (existingUser) {
+            guestUserId = existingUser.id;
+          }
+        } else if (newUser?.user) {
+          isNewUser = true;
+          guestUserId = newUser.user.id;
+          console.log(`🔑 [CARD GUEST] Created user ${customer_email} with temp password: ${tempPassword}`);
+        }
+      } catch (userErr) {
+        console.error("Card guest user flow error:", userErr);
+      }
+    }
+
     const asaasApiKey = Deno.env.get("ASAAS_API_KEY");
     const isProduction = Deno.env.get("ASAAS_PRODUCTION") === "true";
     const baseUrl = isProduction
@@ -72,7 +114,9 @@ serve(async (req) => {
         console.log("✅ [MOCK] Order update result. Error:", updateErr || "NONE");
       }
 
-      const emailResult = order_id ? await sendConfirmationEmail(supabaseAdmin, order_id) : { sent: false, error: "no order_id" };
+      const emailResult = order_id
+        ? await sendConfirmationEmail(supabaseAdmin, order_id, isNewUser, isNewUser ? tempPassword : null)
+        : { sent: false, error: "no order_id" };
 
       return new Response(
         JSON.stringify({
@@ -166,7 +210,7 @@ serve(async (req) => {
       console.log(`✅ Order ${order_id} updated to '${newStatus}'. Error:`, updateErr || "NONE");
 
       if (isConfirmed) {
-        emailResult = await sendConfirmationEmail(supabaseAdmin, order_id);
+        emailResult = await sendConfirmationEmail(supabaseAdmin, order_id, isNewUser, isNewUser ? tempPassword : null);
       }
     }
 
@@ -192,7 +236,9 @@ serve(async (req) => {
 
 async function sendConfirmationEmail(
   supabaseAdmin: any,
-  orderId: string
+  orderId: string,
+  isNewUser: boolean,
+  tempPassword: string | null
 ): Promise<{ sent: boolean; error: string }> {
   try {
     console.log("📧 [CARD EMAIL] Starting email flow for order:", orderId);
@@ -216,41 +262,34 @@ async function sendConfirmationEmail(
       return { sent: false, error: "RESEND_API_KEY not configured" };
     }
 
-    // Check if guest user was recently created → show temp password block
-    let guestAccountBlock = "";
-    try {
-      const adminClient = getSupabaseAdmin();
-      const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-      const guestUser = existingUsers?.users?.find(
-        (u: any) => u.email?.toLowerCase() === order.buyer_email.toLowerCase()
-      );
-      if (guestUser) {
-        const createdAt = new Date(guestUser.created_at).getTime();
-        const fiveMinAgo = Date.now() - 5 * 60 * 1000;
-        if (createdAt > fiveMinAgo) {
-          // User was just created — generate a new temp password and update
-          const tempPassword = generateTempPassword();
-          await adminClient.auth.admin.updateUser(guestUser.id, { password: tempPassword });
-          console.log(`🔑 [CARD GUEST] Set temp password for ${order.buyer_email}`);
+    const loginUrl = "https://easyticket-rouge.vercel.app/auth";
 
-          const loginUrl = "https://easyticket-rouge.vercel.app/auth";
-          guestAccountBlock = `
-            <div style="margin-top: 20px; background: #fffbeb; border: 1px solid #fbbf24; border-radius: 10px; padding: 20px; text-align: center;">
-              <p style="color: #92400e; font-size: 14px; font-weight: 600; margin: 0 0 8px;">🔐 Sua conta foi criada automaticamente</p>
-              <p style="color: #78716c; font-size: 13px; line-height: 1.5; margin: 0 0 12px;">
-                Use a senha provisória abaixo para acessar seus ingressos. Recomendamos alterá-la após o primeiro acesso.
-              </p>
-              <div style="background: #ffffff; border: 2px dashed #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
-                <span style="font-family: monospace; font-size: 20px; font-weight: 700; color: #1e293b; letter-spacing: 2px;">${tempPassword}</span>
-              </div>
-              <a href="${loginUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
-                Acessar minha conta →
-              </a>
-            </div>`;
-        }
-      }
-    } catch (e) {
-      console.error("Guest password block error:", e);
+    let guestAccountBlock = "";
+    if (isNewUser && tempPassword) {
+      guestAccountBlock = `
+        <div style="margin-top: 20px; background: #fffbeb; border: 1px solid #fbbf24; border-radius: 10px; padding: 20px; text-align: center;">
+          <p style="color: #92400e; font-size: 14px; font-weight: 600; margin: 0 0 8px;">🔐 Sua conta foi criada automaticamente</p>
+          <p style="color: #78716c; font-size: 13px; line-height: 1.5; margin: 0 0 12px;">
+            Use a senha provisória abaixo para acessar seus ingressos. Recomendamos alterá-la após o primeiro acesso.
+          </p>
+          <div style="background: #ffffff; border: 2px dashed #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <span style="font-family: monospace; font-size: 20px; font-weight: 700; color: #1e293b; letter-spacing: 2px;">${tempPassword}</span>
+          </div>
+          <a href="${loginUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+            Acessar minha conta →
+          </a>
+        </div>`;
+    } else {
+      guestAccountBlock = `
+        <div style="margin-top: 20px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px; padding: 20px; text-align: center;">
+          <p style="color: #166534; font-size: 14px; font-weight: 600; margin: 0 0 8px;">✅ Você já possui uma conta no EasyTicket</p>
+          <p style="color: #78716c; font-size: 13px; line-height: 1.5; margin: 0 0 12px;">
+            Acesse usando sua senha cadastrada para ver seus ingressos.
+          </p>
+          <a href="${loginUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+            Acessar minha conta →
+          </a>
+        </div>`;
     }
 
     const emailHtml = `
