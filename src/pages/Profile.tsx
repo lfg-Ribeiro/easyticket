@@ -2,11 +2,14 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
-import { User, Settings, HelpCircle, LogOut, ChevronRight, Bell } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { User, LogOut, ChevronRight, Lock, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { ProfileCompletionCard } from "@/components/profile/ProfileCompletionCard";
 import { EditProfileDrawer } from "@/components/profile/EditProfileDrawer";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProfileData {
   full_name: string | null;
@@ -17,8 +20,13 @@ interface ProfileData {
 export default function Profile() {
   const navigate = useNavigate();
   const { user, signOut, loading } = useAuth();
+  const { toast } = useToast();
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -39,7 +47,27 @@ export default function Profile() {
     navigate("/");
   };
 
-  // Deixamos apenas o Editar Perfil, pois os outros ainda não têm função
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      toast({ title: "Senha muito curta", description: "Mínimo de 6 caracteres.", variant: "destructive" });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Senhas não conferem", description: "Verifique e tente novamente.", variant: "destructive" });
+      return;
+    }
+    setChangingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setChangingPassword(false);
+    if (error) {
+      toast({ title: "Erro ao alterar senha", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Senha alterada com sucesso!" });
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+  };
+
   const menuItems = [
     { icon: User, label: "Editar perfil", action: () => setEditOpen(true) },
   ];
@@ -93,6 +121,56 @@ export default function Profile() {
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
               </button>
             ))}
+          </section>
+        )}
+
+        {/* Change Password */}
+        {user && (
+          <section className="bg-card rounded-2xl shadow-card overflow-hidden mb-8 p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+                <Lock className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <h2 className="font-semibold text-foreground">Alterar senha</h2>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="new-password" className="text-sm text-muted-foreground">Nova senha</Label>
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="confirm-password" className="text-sm text-muted-foreground">Confirmar senha</Label>
+                <Input
+                  id="confirm-password"
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repita a nova senha"
+                />
+              </div>
+              <Button
+                onClick={handleChangePassword}
+                disabled={changingPassword || !newPassword}
+                className="w-full"
+              >
+                {changingPassword ? "Salvando..." : "Salvar nova senha"}
+              </Button>
+            </div>
           </section>
         )}
 
