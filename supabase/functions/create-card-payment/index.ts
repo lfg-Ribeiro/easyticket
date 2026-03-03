@@ -14,6 +14,15 @@ function getSupabaseAdmin() {
   );
 }
 
+function generateTempPassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let result = "";
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `Easy${result}!`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -55,7 +64,6 @@ serve(async (req) => {
     if (!asaasApiKey) {
       console.log("💳 [MOCK CARD] ASAAS_API_KEY not configured. Simulating card payment.");
 
-      // ALWAYS update order to confirmed
       if (order_id) {
         const { error: updateErr } = await supabaseAdmin
           .from("orders")
@@ -148,7 +156,6 @@ serve(async (req) => {
 
     const isConfirmed = paymentData.status === "CONFIRMED" || paymentData.status === "RECEIVED";
 
-    // 3. ALWAYS update order status when payment succeeds (regardless of CONFIRMED vs PENDING)
     let emailResult = { sent: false, error: "skipped" };
     if (order_id) {
       const newStatus = isConfirmed ? "confirmed" : "pending";
@@ -158,7 +165,6 @@ serve(async (req) => {
         .eq("id", order_id);
       console.log(`✅ Order ${order_id} updated to '${newStatus}'. Error:`, updateErr || "NONE");
 
-      // Send email immediately if confirmed
       if (isConfirmed) {
         emailResult = await sendConfirmationEmail(supabaseAdmin, order_id);
       }
@@ -191,7 +197,6 @@ async function sendConfirmationEmail(
   try {
     console.log("📧 [CARD EMAIL] Starting email flow for order:", orderId);
 
-    // Fetch order + event data
     const { data: order, error: fetchErr } = await supabaseAdmin
       .from("orders")
       .select("*, events(*)")
@@ -206,14 +211,46 @@ async function sendConfirmationEmail(
     const event = (order as any).events;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
-    console.log("📧 [CARD EMAIL] RESEND_API_KEY exists:", resendApiKey ? "SIM" : "NÃO");
-    const o = order as any;
-    console.log("📧 [CARD EMAIL] Tentando enviar email para:", o.buyer_email);
-    console.log("📧 [CARD EMAIL] Event:", event?.title, "| Qty:", o.quantity);
-
     if (!resendApiKey) {
-      console.log("📧 [CARD EMAIL MOCK] Sem RESEND_API_KEY. Would send to:", (order as any).buyer_email);
+      console.log("📧 [CARD EMAIL MOCK] Sem RESEND_API_KEY. Would send to:", order.buyer_email);
       return { sent: false, error: "RESEND_API_KEY not configured" };
+    }
+
+    // Check if guest user was recently created → show temp password block
+    let guestAccountBlock = "";
+    try {
+      const adminClient = getSupabaseAdmin();
+      const { data: existingUsers } = await adminClient.auth.admin.listUsers();
+      const guestUser = existingUsers?.users?.find(
+        (u: any) => u.email?.toLowerCase() === order.buyer_email.toLowerCase()
+      );
+      if (guestUser) {
+        const createdAt = new Date(guestUser.created_at).getTime();
+        const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+        if (createdAt > fiveMinAgo) {
+          // User was just created — generate a new temp password and update
+          const tempPassword = generateTempPassword();
+          await adminClient.auth.admin.updateUser(guestUser.id, { password: tempPassword });
+          console.log(`🔑 [CARD GUEST] Set temp password for ${order.buyer_email}`);
+
+          const loginUrl = "https://easyticket-rouge.vercel.app/auth";
+          guestAccountBlock = `
+            <div style="margin-top: 20px; background: #fffbeb; border: 1px solid #fbbf24; border-radius: 10px; padding: 20px; text-align: center;">
+              <p style="color: #92400e; font-size: 14px; font-weight: 600; margin: 0 0 8px;">🔐 Sua conta foi criada automaticamente</p>
+              <p style="color: #78716c; font-size: 13px; line-height: 1.5; margin: 0 0 12px;">
+                Use a senha provisória abaixo para acessar seus ingressos. Recomendamos alterá-la após o primeiro acesso.
+              </p>
+              <div style="background: #ffffff; border: 2px dashed #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                <span style="font-family: monospace; font-size: 20px; font-weight: 700; color: #1e293b; letter-spacing: 2px;">${tempPassword}</span>
+              </div>
+              <a href="${loginUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+                Acessar minha conta →
+              </a>
+            </div>`;
+        }
+      }
+    } catch (e) {
+      console.error("Guest password block error:", e);
     }
 
     const emailHtml = `
@@ -238,38 +275,7 @@ async function sendConfirmationEmail(
           <a href="https://easyticket-rouge.vercel.app/tickets" style="display: block; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #ffffff; padding: 16px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; text-align: center;">
             Ver Meu QR Code →
           </a>
-          ${await (async () => {
-            // Check if this is a new guest user and generate recovery link
-            try {
-              const supabaseAdmin = getSupabaseAdmin();
-              const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-              const guestUser = existingUsers?.users?.find(
-                (u: any) => u.email?.toLowerCase() === order.buyer_email.toLowerCase()
-              );
-              if (guestUser) {
-                const createdAt = new Date(guestUser.created_at).getTime();
-                const fiveMinAgo = Date.now() - 5 * 60 * 1000;
-                if (createdAt > fiveMinAgo) {
-                  const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
-                    type: "recovery",
-                    email: order.buyer_email,
-                  });
-                  const recoveryUrl = linkData?.properties?.action_link || "";
-                  if (recoveryUrl) {
-                    return `<div style="margin-top: 20px; text-align: center;">
-                      <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin-bottom: 12px;">
-                        💡 Uma conta foi criada automaticamente. Cadastre sua senha para acessar seus ingressos.
-                      </p>
-                      <a href="${recoveryUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
-                        Cadastrar minha senha →
-                      </a>
-                    </div>`;
-                  }
-                }
-              }
-            } catch (e) { console.error("Recovery link in card email error:", e); }
-            return "";
-          })()}
+          ${guestAccountBlock}
         </div>
         <div style="background: #f8fafc; padding: 16px 24px; border-radius: 0 0 12px 12px; text-align: center;">
           <p style="color: #94a3b8; font-size: 12px; margin: 0;">EasyTicket — Ingressos simplificados</p>
@@ -277,30 +283,24 @@ async function sendConfirmationEmail(
       </div>
     `;
 
-    const resendBody = {
-      from: "EasyTicket <onboarding@resend.dev>",
-      to: [order.buyer_email],
-      subject: `🎫 Pagamento confirmado - ${event?.title || "seu evento"}!`,
-      html: emailHtml,
-    };
-
-    console.log("📧 [CARD EMAIL] Resend payload:", JSON.stringify({ to: resendBody.to, subject: resendBody.subject }));
-
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${resendApiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(resendBody),
+      body: JSON.stringify({
+        from: "EasyTicket <onboarding@resend.dev>",
+        to: [order.buyer_email],
+        subject: `🎫 Pagamento confirmado - ${event?.title || "seu evento"}!`,
+        html: emailHtml,
+      }),
     });
 
     const resendText = await resendRes.text();
-    console.log("📧 [CARD EMAIL] Resend response status:", resendRes.status, "body:", resendText);
-
     if (resendRes.ok) {
       const resendData = JSON.parse(resendText);
-      console.log("✅ [CARD EMAIL] Resend sent successfully. ID:", resendData.id);
+      console.log("✅ [CARD EMAIL] Resend sent. ID:", resendData.id);
       return { sent: true, error: "" };
     } else {
       console.error("❌ [CARD EMAIL RESEND ERROR]:", resendRes.status, resendText);

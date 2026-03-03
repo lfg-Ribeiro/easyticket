@@ -6,6 +6,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function generateTempPassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let result = "";
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `Easy${result}!`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -26,9 +35,10 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // ── Guest Checkout: Silent user creation ──
+    // ── Guest Checkout: Silent user creation with temp password ──
     let guestUserId: string | null = null;
     let isNewUser = false;
+    let tempPassword: string | null = null;
     try {
       const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
       const existingUser = existingUsers?.users?.find(
@@ -39,7 +49,7 @@ serve(async (req) => {
         guestUserId = existingUser.id;
       } else {
         isNewUser = true;
-        const tempPassword = crypto.randomUUID();
+        tempPassword = generateTempPassword();
         const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
           email: buyer_email,
           password: tempPassword,
@@ -51,18 +61,7 @@ serve(async (req) => {
           console.error("Silent user creation error:", createError);
         } else if (newUser?.user) {
           guestUserId = newUser.user.id;
-
-          // Generate recovery link so the guest can set a password
-          const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-            type: "recovery",
-            email: buyer_email,
-          });
-          if (linkError) {
-            console.error("Recovery link error:", linkError);
-          } else {
-            console.log(`🔑 [RECOVERY LINK] Generated for ${buyer_email}`);
-          }
-          var recoveryUrl = linkData?.properties?.action_link || "";
+          console.log(`🔑 [GUEST] Created user ${buyer_email} with temp password`);
         }
       }
     } catch (userErr) {
@@ -195,11 +194,27 @@ serve(async (req) => {
       }
     }
 
-    // ── E-mail 2: Ticket confirmation via Resend ──
+    // ── E-mail via Resend ──
     let emailSent = false;
     let emailError: string | null = null;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const ticketUrl = "https://easyticket-rouge.vercel.app/tickets";
+    const loginUrl = "https://easyticket-rouge.vercel.app/auth";
+
+    const guestAccountBlock = isNewUser && tempPassword
+      ? `<div style="margin-top: 20px; background: #fffbeb; border: 1px solid #fbbf24; border-radius: 10px; padding: 20px; text-align: center;">
+           <p style="color: #92400e; font-size: 14px; font-weight: 600; margin: 0 0 8px;">🔐 Sua conta foi criada automaticamente</p>
+           <p style="color: #78716c; font-size: 13px; line-height: 1.5; margin: 0 0 12px;">
+             Use a senha provisória abaixo para acessar seus ingressos. Recomendamos alterá-la após o primeiro acesso.
+           </p>
+           <div style="background: #ffffff; border: 2px dashed #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+             <span style="font-family: monospace; font-size: 20px; font-weight: 700; color: #1e293b; letter-spacing: 2px;">${tempPassword}</span>
+           </div>
+           <a href="${loginUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+             Acessar minha conta →
+           </a>
+         </div>`
+      : '';
 
     const emailHtml = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
@@ -239,16 +254,7 @@ serve(async (req) => {
           <a href="${ticketUrl}" style="display: block; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #ffffff; padding: 16px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; text-align: center;">
             Ver Meu QR Code →
           </a>
-          ${isNewUser && recoveryUrl ? `
-          <div style="margin-top: 20px; text-align: center;">
-            <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin-bottom: 12px;">
-              💡 Uma conta foi criada automaticamente com este e-mail. Cadastre sua senha para acessar seus ingressos a qualquer momento.
-            </p>
-            <a href="${recoveryUrl}" style="display: inline-block; background: #1e293b; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
-              Cadastrar minha senha →
-            </a>
-          </div>
-          ` : ''}
+          ${guestAccountBlock}
         </div>
         <div style="background: #f8fafc; padding: 16px 24px; border-radius: 0 0 12px 12px; text-align: center;">
           <p style="color: #94a3b8; font-size: 12px; margin: 0;">EasyTicket — Ingressos simplificados</p>
@@ -259,7 +265,6 @@ serve(async (req) => {
     console.log("📧 [RESEND DEBUG] Key exists:", resendApiKey ? "SIM" : "NÃO");
     if (resendApiKey) {
       try {
-        console.log(`📧 [RESEND] Sending to: ${buyer_email}, From: EasyTicket <onboarding@resend.dev>`);
         const resendRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -282,34 +287,13 @@ serve(async (req) => {
           const errBody = await resendRes.text();
           emailError = `[${resendRes.status}] ${errBody}`;
           console.error("[RESEND ERROR]:", resendRes.status, errBody);
-          if (errBody.includes("domain")) {
-            console.error("[RESEND ERROR]: Domain verification issue. Use onboarding@resend.dev for free accounts.");
-          }
-          if (errBody.includes("403") || errBody.includes("Forbidden")) {
-            console.error("[RESEND ERROR]: 403 Forbidden - check API key permissions and plan limits.");
-          }
         }
       } catch (emailErr) {
         console.error("Email send error:", emailErr);
       }
     } else {
-      console.log("📧 [MOCK EMAIL - TICKET] Would send to:", buyer_email);
-      console.log("Subject:", `🎫 Seu acesso ao evento ${event.title} está garantido!`);
+      console.log("📧 [MOCK EMAIL] Would send to:", buyer_email);
     }
-
-    const emailData = {
-      to: buyer_email,
-      from: "EasyTicket <onboarding@resend.dev>",
-      subject: `🎫 Seu acesso ao evento ${event.title} está garantido!`,
-      event_title: event.title,
-      event_date: event.event_date,
-      event_time: event.event_time,
-      venue: event.venue,
-      location: event.location,
-      quantity,
-      transaction_id: transactionId,
-      resend_key_exists: !!resendApiKey,
-    };
 
     return new Response(
       JSON.stringify({
@@ -318,7 +302,6 @@ serve(async (req) => {
         transaction_id: transactionId,
         email_sent: emailSent,
         email_error: emailError,
-        email_data: emailData,
         guest_user_id: guestUserId,
         is_new_user: isNewUser,
       }),
