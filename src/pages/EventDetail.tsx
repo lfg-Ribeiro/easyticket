@@ -25,16 +25,15 @@ export default function EventDetail() {
         .select(`
           id, title, description, event_date, event_time,
           location, venue, cover_image_url, category, fee_absorbed,
-          ticket_batches (price, available_quantity)
+          ticket_batches (id, name, price, available_quantity, status, sort_order)
         `)
         .eq("id", id)
         .maybeSingle();
 
       if (data) {
         const batches = (data as any).ticket_batches || [];
-        const cheapest = batches.length > 0
-          ? Math.min(...batches.map((b: any) => Number(b.price)))
-          : 0;
+        // Find the active batch (status = 'active')
+        const activeBatch = batches.find((b: any) => b.status === "active");
         const totalAvailable = batches.reduce((sum: number, b: any) => sum + (b.available_quantity || 0), 0);
 
         setEvent({
@@ -46,10 +45,12 @@ export default function EventDetail() {
           location: data.location,
           venue: data.venue,
           image: data.cover_image_url || "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop",
-          price: cheapest,
+          price: activeBatch ? Number(activeBatch.price) : 0,
           category: data.category,
-          availableTickets: totalAvailable,
+          availableTickets: activeBatch ? activeBatch.available_quantity : totalAvailable,
           organizer: "",
+          activeBatchId: activeBatch?.id,
+          activeBatchName: activeBatch?.name,
         });
       }
       setLoading(false);
@@ -119,9 +120,16 @@ export default function EventDetail() {
         <div className="hidden md:grid md:grid-cols-5 md:gap-8">
           <div className="md:col-span-3">
             <div className="bg-card rounded-2xl shadow-elevated p-6 md:p-8">
-              <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-4">
-                {event.category}
-              </span>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                  {event.category}
+                </span>
+                {event.activeBatchName && (
+                  <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-accent text-accent-foreground">
+                    {event.activeBatchName}
+                  </span>
+                )}
+              </div>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-4">{event.title}</h1>
               <div className="grid gap-2.5 mb-6">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -154,9 +162,16 @@ export default function EventDetail() {
 
         <div className="md:hidden">
           <div className="bg-card rounded-2xl shadow-elevated p-5">
-            <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-4">
-              {event.category}
-            </span>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                {event.category}
+              </span>
+              {event.activeBatchName && (
+                <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-accent text-accent-foreground">
+                  {event.activeBatchName}
+                </span>
+              )}
+            </div>
             <h1 className="text-2xl font-bold text-foreground mb-4">{event.title}</h1>
             <div className="grid gap-2.5 mb-6">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
