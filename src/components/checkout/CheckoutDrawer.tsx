@@ -59,8 +59,10 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
+  const maxQuantity = Math.min(10, event.availableTickets);
+
   const handleQuantityChange = (delta: number) => {
-    setQuantity((prev) => Math.max(1, Math.min(10, prev + delta)));
+    setQuantity((prev) => Math.max(1, Math.min(maxQuantity, prev + delta)));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,6 +89,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
     const { data, error } = await supabase.functions.invoke("create-checkout", {
       body: {
         event_id: event.id,
+        batch_id: event.activeBatchId,
         buyer_name: formData.name,
         buyer_email: formData.email,
         buyer_cpf: formData.cpf,
@@ -95,8 +98,8 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
       },
     });
 
-    if (error) {
-      throw new Error("Checkout failed");
+    if (error || data?.error) {
+      throw new Error(data?.error || "Checkout failed");
     }
 
     return data;
@@ -322,7 +325,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                     <span className="text-lg font-bold w-6 text-center">{quantity}</span>
                     <button
                       onClick={() => handleQuantityChange(1)}
-                      disabled={quantity >= 10}
+                      disabled={quantity >= maxQuantity}
                       className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-50 transition-colors"
                     >
                       <Plus className="h-4 w-4" />

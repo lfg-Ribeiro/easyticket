@@ -11,6 +11,8 @@ export interface Event {
   category: string;
   availableTickets: number;
   organizer: string;
+  activeBatchId?: string;
+  activeBatchName?: string;
 }
 
 export interface Ticket {

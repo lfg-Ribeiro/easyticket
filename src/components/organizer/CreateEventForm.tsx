@@ -179,12 +179,14 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
       // Create ticket batches
       const validBatches = batches.filter((b) => b.price && b.quantity);
       if (validBatches.length > 0) {
-        const batchData = validBatches.map((b) => ({
+        const batchData = validBatches.map((b, index) => ({
           event_id: event.id,
           name: b.name,
           price: parseFloat(b.price),
           total_quantity: parseInt(b.quantity),
           available_quantity: parseInt(b.quantity),
+          sort_order: index,
+          status: index === 0 ? "active" : "inactive",
         }));
 
         const { error: batchError } = await supabase

@@ -162,6 +162,8 @@ export type Database = {
           id: string
           name: string
           price: number
+          sort_order: number
+          status: string
           total_quantity: number
         }
         Insert: {
@@ -171,6 +173,8 @@ export type Database = {
           id?: string
           name: string
           price?: number
+          sort_order?: number
+          status?: string
           total_quantity?: number
         }
         Update: {
@@ -180,6 +184,8 @@ export type Database = {
           id?: string
           name?: string
           price?: number
+          sort_order?: number
+          status?: string
           total_quantity?: number
         }
         Relationships: [
@@ -285,6 +291,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consume_batch_tickets: {
+        Args: { p_batch_id: string; p_quantity: number }
+        Returns: Json
+      }
       get_sales_by_day: {
         Args: { end_date: string; start_date: string }
         Returns: {

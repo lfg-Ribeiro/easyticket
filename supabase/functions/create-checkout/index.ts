@@ -91,35 +91,51 @@ serve(async (req) => {
 
     let batchPrice = 0;
     let selectedBatchId = batch_id || null;
+
     if (batch_id) {
+      // Validate the specific batch is active and has capacity
       const { data: batch } = await supabaseAdmin
         .from("ticket_batches")
         .select("*")
         .eq("id", batch_id)
+        .eq("status", "active")
         .single();
 
-      if (batch) {
-        if (batch.available_quantity < quantity) {
-          return new Response(
-            JSON.stringify({ error: "Not enough tickets available" }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        batchPrice = Number(batch.price);
+      if (!batch) {
+        return new Response(
+          JSON.stringify({ error: "Este lote não está mais disponível. Atualize a página." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
+
+      if (batch.available_quantity < quantity) {
+        return new Response(
+          JSON.stringify({ error: `A quantidade solicitada excede os ingressos restantes neste lote. Disponível: ${batch.available_quantity}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      batchPrice = Number(batch.price);
     } else {
-      const { data: batches } = await supabaseAdmin
+      // Find active batch for this event
+      const { data: activeBatch } = await supabaseAdmin
         .from("ticket_batches")
         .select("*")
         .eq("event_id", event_id)
-        .gt("available_quantity", 0)
-        .order("price", { ascending: true })
-        .limit(1);
+        .eq("status", "active")
+        .order("sort_order", { ascending: true })
+        .limit(1)
+        .maybeSingle();
 
-      if (batches && batches.length > 0) {
-        batchPrice = Number(batches[0].price);
-        selectedBatchId = batches[0].id;
+      if (!activeBatch || activeBatch.available_quantity < quantity) {
+        return new Response(
+          JSON.stringify({ error: activeBatch 
+            ? `A quantidade solicitada excede os ingressos restantes neste lote. Disponível: ${activeBatch.available_quantity}`
+            : "Não há ingressos disponíveis para este evento." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
+      batchPrice = Number(activeBatch.price);
+      selectedBatchId = activeBatch.id;
     }
 
     const subtotal = batchPrice * quantity;
@@ -185,19 +201,19 @@ serve(async (req) => {
       );
     }
 
-    // Update available quantity
+    // Atomically consume tickets from batch (handles switching)
     if (selectedBatchId) {
-      const { data: currentBatch } = await supabaseAdmin
-        .from("ticket_batches")
-        .select("available_quantity")
-        .eq("id", selectedBatchId)
-        .single();
+      const { data: consumeResult, error: consumeError } = await supabaseAdmin
+        .rpc("consume_batch_tickets", { p_batch_id: selectedBatchId, p_quantity: quantity });
 
-      if (currentBatch) {
-        await supabaseAdmin
-          .from("ticket_batches")
-          .update({ available_quantity: Math.max(0, currentBatch.available_quantity - quantity) })
-          .eq("id", selectedBatchId);
+      if (consumeError || consumeResult?.error) {
+        // Rollback: delete tickets and order
+        await supabaseAdmin.from("tickets").delete().eq("order_id", order.id);
+        await supabaseAdmin.from("orders").delete().eq("id", order.id);
+        return new Response(
+          JSON.stringify({ error: consumeResult?.error || "Erro ao reservar ingressos" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
