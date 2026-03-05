@@ -66,7 +66,8 @@ serve(async (req) => {
         ),
         orders:order_id (
           buyer_name,
-          buyer_email
+          buyer_email,
+          payment_status
         )
       `)
       .eq("qr_code", qr_code)
@@ -94,6 +95,19 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Not authorized for this event" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if payment is confirmed
+    const orderPaymentStatus = (ticket as any).orders?.payment_status;
+    if (orderPaymentStatus && orderPaymentStatus !== 'confirmed' && orderPaymentStatus !== 'paid') {
+      return new Response(
+        JSON.stringify({
+          status: "invalid",
+          message: "Pagamento Pendente",
+          description: "Este ingresso está vinculado a um pedido com pagamento não confirmado.",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

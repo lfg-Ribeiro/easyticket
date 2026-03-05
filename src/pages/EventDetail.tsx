@@ -16,6 +16,14 @@ export default function EventDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Run cleanup of expired pending orders on page load
+    supabase.rpc("cleanup_expired_orders").then(({ data }) => {
+      const result = data as any;
+      if (result?.expired_count > 0) console.log(`[Cleanup] Expired ${result.expired_count} pending orders`);
+    });
+  }, []);
+
+  useEffect(() => {
     const fetchEvent = async () => {
       if (!id) return;
       setLoading(true);
@@ -144,11 +152,18 @@ export default function EventDetail() {
                   <MapPin className="h-4 w-4 flex-shrink-0 text-primary/70" />
                   <span>{event.venue}, {event.location}</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Users className="h-4 w-4 flex-shrink-0 text-primary/70" />
                   <span>{event.availableTickets.toLocaleString()} ingressos disponíveis</span>
                 </div>
               </div>
+              {event.activeBatchName && (
+                <div className="mb-6 p-3 rounded-xl bg-primary/10 border border-primary/20">
+                  <p className="text-sm font-semibold text-primary">
+                    {event.activeBatchName} — Restam {event.availableTickets} ingresso{event.availableTickets !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              )}
               <div className="mb-8">
                 <h2 className="text-base font-semibold text-foreground mb-2">Sobre o evento</h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">{event.description}</p>
@@ -191,6 +206,13 @@ export default function EventDetail() {
                 <span>{event.availableTickets.toLocaleString()} ingressos disponíveis</span>
               </div>
             </div>
+            {event.activeBatchName && (
+              <div className="mb-6 p-3 rounded-xl bg-primary/10 border border-primary/20">
+                <p className="text-sm font-semibold text-primary">
+                  {event.activeBatchName} — Restam {event.availableTickets} ingresso{event.availableTickets !== 1 ? 's' : ''}
+                </p>
+              </div>
+            )}
             <div className="mb-6">
               <h2 className="text-base font-semibold text-foreground mb-2">Sobre o evento</h2>
               <p className="text-sm text-muted-foreground leading-relaxed">{event.description}</p>

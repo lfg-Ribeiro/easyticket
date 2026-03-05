@@ -311,6 +311,15 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                   </div>
                 </div>
 
+                {/* Active Batch Info */}
+                {event.activeBatchName && (
+                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+                    <p className="text-sm font-semibold text-primary">
+                      {event.activeBatchName} — Restam {event.availableTickets} ingresso{event.availableTickets !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                )}
+
                 {/* Quantity Selector */}
                 <div className="flex items-center justify-between py-3 border-b border-border">
                   <span className="font-medium text-foreground">Quantidade</span>

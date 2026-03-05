@@ -27,7 +27,7 @@ export default function MyTickets() {
         .from("tickets")
         .select(`
           id, qr_code, check_in_status, holder_name, created_at,
-          order:orders!tickets_order_id_fkey (quantity, total_amount),
+          order:orders!tickets_order_id_fkey (quantity, total_amount, payment_status),
           event:events!tickets_event_id_fkey (
             id, title, description, event_date, event_time,
             location, venue, cover_image_url, category
@@ -39,7 +39,12 @@ export default function MyTickets() {
       console.log("[MyTickets] Query result:", { count: data?.length, error });
 
       if (data) {
-        const mapped: TicketType[] = data.map((t: any) => ({
+        // Filter out tickets with pending/expired payments
+        const paidData = data.filter((t: any) => {
+          const paymentStatus = t.order?.payment_status;
+          return paymentStatus === 'confirmed' || paymentStatus === 'paid';
+        });
+        const mapped: TicketType[] = paidData.map((t: any) => ({
           id: t.id,
           eventId: t.event?.id || "",
           event: {
