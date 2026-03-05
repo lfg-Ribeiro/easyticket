@@ -291,6 +291,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_orders: { Args: never; Returns: Json }
       consume_batch_tickets: {
         Args: { p_batch_id: string; p_quantity: number }
         Returns: Json

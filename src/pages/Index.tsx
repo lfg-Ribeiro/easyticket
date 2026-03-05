@@ -30,7 +30,7 @@ const Index = () => {
           cover_image_url,
           category,
           fee_absorbed,
-          ticket_batches (price, available_quantity)
+          ticket_batches (name, price, available_quantity, status)
         `)
         .eq("published", true)
         .gte("event_date", new Date().toISOString().split('T')[0])
@@ -39,10 +39,9 @@ const Index = () => {
       if (data) {
         const mapped: Event[] = data.map((e: any) => {
           const batches = e.ticket_batches || [];
-          const cheapest = batches.length > 0
-            ? Math.min(...batches.map((b: any) => Number(b.price)))
-            : 0;
-          const totalAvailable = batches.reduce((sum: number, b: any) => sum + (b.available_quantity || 0), 0);
+          const activeBatch = batches.find((b: any) => b.status === "active");
+          const activePrice = activeBatch ? Number(activeBatch.price) : (batches.length > 0 ? Math.min(...batches.map((b: any) => Number(b.price))) : 0);
+          const totalAvailable = activeBatch ? activeBatch.available_quantity : batches.reduce((sum: number, b: any) => sum + (b.available_quantity || 0), 0);
 
           return {
             id: e.id,
@@ -53,10 +52,11 @@ const Index = () => {
             location: e.location,
             venue: e.venue,
             image: e.cover_image_url || "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop",
-            price: cheapest,
+            price: activePrice,
             category: e.category,
             availableTickets: totalAvailable,
             organizer: "",
+            activeBatchName: activeBatch?.name,
           };
         });
         setEvents(mapped);
