@@ -31,7 +31,7 @@ serve(async (req) => {
       type: "recovery",
       email,
       options: {
-        redirectTo: "https://easyticket-rouge.vercel.app/update-password",
+        redirectTo: "https://www.easyticket.dev.br/update-password",
       },
     });
 
