@@ -130,7 +130,7 @@ serve(async (req) => {
 
         try {
           console.log(`📧 Sending Resend email to: ${order.buyer_email}`);
-          console.log(`📧 From: EasyTicket <onboarding@resend.dev>`);
+          console.log(`📧 From: EasyTicket <contato@easyticket.dev.br>`);
           console.log(`📧 Subject: 🎫 Pagamento confirmado - ${event?.title}`);
 
           const resendRes = await fetch("https://api.resend.com/emails", {
