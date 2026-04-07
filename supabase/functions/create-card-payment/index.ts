@@ -262,7 +262,7 @@ async function sendConfirmationEmail(
       return { sent: false, error: "RESEND_API_KEY not configured" };
     }
 
-    const loginUrl = "https://easyticket-rouge.vercel.app/auth";
+    const loginUrl = "https://www.easyticket.dev.br/auth";
 
     let guestAccountBlock = "";
     if (isNewUser && tempPassword) {
