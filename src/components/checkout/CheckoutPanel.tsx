@@ -167,7 +167,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     console.log("📧 [EMAIL DATA]", {
       to: formData.email,
       event: event.title,
-      ticketLink: `https://easyticket.com/tickets`,
+      ticketLink: `https://www.easyticket.dev.br/tickets`,
       emailSent: result.email_sent,
       emailData: result.email_data,
     });

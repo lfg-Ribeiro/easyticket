@@ -130,7 +130,7 @@ serve(async (req) => {
 
         try {
           console.log(`📧 Sending Resend email to: ${order.buyer_email}`);
-          console.log(`📧 From: EasyTicket <onboarding@resend.dev>`);
+          console.log(`📧 From: EasyTicket <contato@easyticket.dev.br>`);
           console.log(`📧 Subject: 🎫 Pagamento confirmado - ${event?.title}`);
 
           const resendRes = await fetch("https://api.resend.com/emails", {
@@ -140,7 +140,7 @@ serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              from: "EasyTicket <onboarding@resend.dev>",
+              from: "EasyTicket <contato@easyticket.dev.br>",
               to: [order.buyer_email],
               subject: `🎫 Pagamento confirmado - ${event?.title || "seu evento"}!`,
               html: emailHtml,
@@ -154,7 +154,7 @@ serve(async (req) => {
             const errBody = await resendRes.text();
             console.error("[RESEND ERROR]:", resendRes.status, errBody);
             if (errBody.includes("domain")) {
-              console.error("[RESEND ERROR]: Domain verification issue. Use onboarding@resend.dev for free accounts.");
+              console.error("[RESEND ERROR]: Domain verification issue.");
             }
             if (errBody.includes("403") || errBody.includes("Forbidden")) {
               console.error("[RESEND ERROR]: 403 Forbidden - check API key permissions and plan limits.");

@@ -237,8 +237,8 @@ serve(async (req) => {
     let emailSent = false;
     let emailError: string | null = null;
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    const ticketUrl = "https://easyticket-rouge.vercel.app/tickets";
-    const loginUrl = "https://easyticket-rouge.vercel.app/auth";
+    const ticketUrl = "https://www.easyticket.dev.br/tickets";
+    const loginUrl = "https://www.easyticket.dev.br/auth";
 
     let guestAccountBlock = "";
     if (isNewUser) {
@@ -326,7 +326,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "EasyTicket <onboarding@resend.dev>",
+            from: "EasyTicket <contato@easyticket.dev.br>",
             to: [buyer_email],
             subject: `🎫 Seu acesso ao evento ${event.title} está garantido!`,
             html: emailHtml,

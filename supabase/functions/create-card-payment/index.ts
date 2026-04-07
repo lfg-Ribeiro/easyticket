@@ -262,7 +262,7 @@ async function sendConfirmationEmail(
       return { sent: false, error: "RESEND_API_KEY not configured" };
     }
 
-    const loginUrl = "https://easyticket-rouge.vercel.app/auth";
+    const loginUrl = "https://www.easyticket.dev.br/auth";
 
     let guestAccountBlock = "";
     if (isNewUser && tempPassword) {
@@ -311,7 +311,7 @@ async function sendConfirmationEmail(
               <tr><td style="padding: 8px 0; color: #64748b; font-size: 14px;">🆔 Transação</td><td style="padding: 8px 0; color: #1e293b; font-size: 14px; text-align: right; font-weight: 600;">${order.transaction_id || ""}</td></tr>
             </table>
           </div>
-          <a href="https://easyticket-rouge.vercel.app/tickets" style="display: block; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #ffffff; padding: 16px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; text-align: center;">
+          <a href="https://www.easyticket.dev.br/tickets" style="display: block; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: #ffffff; padding: 16px 24px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 16px; text-align: center;">
             Ver Meu QR Code →
           </a>
           ${guestAccountBlock}
@@ -329,7 +329,7 @@ async function sendConfirmationEmail(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "EasyTicket <onboarding@resend.dev>",
+        from: "EasyTicket <contato@easyticket.dev.br>",
         to: [order.buyer_email],
         subject: `🎫 Pagamento confirmado - ${event?.title || "seu evento"}!`,
         html: emailHtml,
