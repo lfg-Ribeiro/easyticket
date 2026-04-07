@@ -121,7 +121,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "EasyTicket <onboarding@resend.dev>",
+            from: "EasyTicket <contato@easyticket.dev.br>",
             to: [order.buyer_email],
             subject: `🎫 Pagamento confirmado - ${eventData?.title || "seu evento"}!`,
             html: emailHtml,

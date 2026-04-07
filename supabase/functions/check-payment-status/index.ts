@@ -154,7 +154,7 @@ serve(async (req) => {
             const errBody = await resendRes.text();
             console.error("[RESEND ERROR]:", resendRes.status, errBody);
             if (errBody.includes("domain")) {
-              console.error("[RESEND ERROR]: Domain verification issue. Use onboarding@resend.dev for free accounts.");
+              console.error("[RESEND ERROR]: Domain verification issue.");
             }
             if (errBody.includes("403") || errBody.includes("Forbidden")) {
               console.error("[RESEND ERROR]: 403 Forbidden - check API key permissions and plan limits.");
