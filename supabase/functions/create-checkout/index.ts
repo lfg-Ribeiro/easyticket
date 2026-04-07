@@ -69,7 +69,23 @@ serve(async (req) => {
       } else if (newUser?.user) {
         isNewUser = true;
         guestUserId = newUser.user.id;
-        console.log(`🔑 [GUEST] Created user ${buyer_email} with temp password: ${tempPassword}`);
+        console.log(`🔑 [GUEST] Created user ${buyer_email}`);
+
+        // Fire-and-forget: send branded welcome email with recovery link
+        try {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          fetch(`${supabaseUrl}/functions/v1/send-welcome-email`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${serviceKey}`,
+            },
+            body: JSON.stringify({ email: buyer_email, name: buyer_name }),
+          }).then(r => r.json()).then(d => console.log("📧 Welcome email result:", d)).catch(e => console.error("📧 Welcome email fire-and-forget error:", e));
+        } catch (welcomeErr) {
+          console.error("📧 Welcome email call error:", welcomeErr);
+        }
       }
     } catch (userErr) {
       console.error("Guest user flow error:", userErr);
