@@ -29,7 +29,7 @@ export function EventListItem({ event, soldCount, revenue }: EventListItemProps)
   }).format(revenue);
 
   const handleCopyLink = () => {
-    const url = `${window.location.origin}/event/${event.id}`;
+    const url = `https://www.easyticket.dev.br/event/${event.id}`;
     navigator.clipboard.writeText(url);
     toast({ title: "Link copiado!", description: "URL do evento copiada para a área de transferência." });
   };

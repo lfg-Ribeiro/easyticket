@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, fullName: string, cpf?: string, phone?: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+    const redirectUrl = "https://www.easyticket.dev.br/";
     const { error } = await supabase.auth.signUp({
       email,
       password,
