@@ -9,10 +9,11 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, className }: EventCardProps) {
-  const formattedDate = new Date(event.date).toLocaleDateString("pt-BR", {
-    day: "numeric",
-    month: "short",
-  });
+  const formattedDate = (() => {
+    const parts = event.date.split("-");
+    const utcDate = new Date(Date.UTC(+parts[0], +parts[1] - 1, +parts[2]));
+    return utcDate.toLocaleDateString("pt-BR", { day: "numeric", month: "short", timeZone: "UTC" });
+  })();
 
   const formattedPrice = new Intl.NumberFormat("pt-BR", {
     style: "currency",
