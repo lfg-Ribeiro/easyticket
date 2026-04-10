@@ -86,9 +86,9 @@ export function TicketDetailModal({ ticket, open, onOpenChange, onTransferred }:
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setShowTransfer(false); setTransferCpf(""); } }}>
-      <DialogContent className="max-w-md max-h-[85vh] p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-md max-h-[85dvh] p-0 gap-0 overflow-hidden flex flex-col">
         {/* Header Image */}
-        <div className="relative h-40 overflow-hidden">
+        <div className="relative h-40 overflow-hidden flex-shrink-0">
           <img
             src={ticket.event.image}
             alt={ticket.event.title}
@@ -100,7 +100,7 @@ export function TicketDetailModal({ ticket, open, onOpenChange, onTransferred }:
           </div>
         </div>
 
-        <div className="p-5 space-y-5 overflow-y-auto pb-24">
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 pb-8" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
           {/* Status Badge */}
           <div className="flex justify-center">
             <span className={cn("inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold", status.bgClass, status.textClass)}>
