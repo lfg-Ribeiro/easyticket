@@ -40,8 +40,10 @@ export default function MyTickets() {
 
       if (data) {
         // Filter out tickets with pending/expired payments
+        // Note: transferred tickets may have null order (RLS) — treat as valid
         const paidData = data.filter((t: any) => {
           const paymentStatus = t.order?.payment_status;
+          if (!t.order) return true; // transferred ticket, order not visible
           return paymentStatus === 'confirmed' || paymentStatus === 'paid';
         });
         const mapped: TicketType[] = paidData.map((t: any) => ({
