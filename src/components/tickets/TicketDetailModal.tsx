@@ -86,7 +86,7 @@ export function TicketDetailModal({ ticket, open, onOpenChange, onTransferred }:
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setShowTransfer(false); setTransferCpf(""); } }}>
-      <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-md max-h-[85vh] p-0 gap-0 overflow-hidden">
         {/* Header Image */}
         <div className="relative h-40 overflow-hidden">
           <img
@@ -100,7 +100,7 @@ export function TicketDetailModal({ ticket, open, onOpenChange, onTransferred }:
           </div>
         </div>
 
-        <div className="p-5 space-y-5">
+        <div className="p-5 space-y-5 overflow-y-auto pb-24">
           {/* Status Badge */}
           <div className="flex justify-center">
             <span className={cn("inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold", status.bgClass, status.textClass)}>
