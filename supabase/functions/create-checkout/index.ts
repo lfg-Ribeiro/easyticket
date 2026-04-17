@@ -173,7 +173,7 @@ serve(async (req) => {
         service_fee: serviceFee,
         total_amount: totalAmount,
         payment_method: payment_method || "pix",
-        payment_status: payment_method === "card" ? "confirmed" : "pending",
+        payment_status: "pending",
         transaction_id: transactionId,
       })
       .select()
