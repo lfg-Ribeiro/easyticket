@@ -133,6 +133,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
           amount: total,
           customer_cpf: formData.cpf,
           customer_name: formData.name,
+          order_id: orderId,
         },
       });
       const asaasError = data?.error || (error as any)?.message;
