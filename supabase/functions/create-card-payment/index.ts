@@ -190,10 +190,10 @@ serve(async (req) => {
 
     if (!paymentRes.ok || !paymentData.id) {
       console.error("Asaas card payment error:", paymentData);
-      const errorMsg = paymentData.errors?.[0]?.description || "Card payment failed";
+      const asaasMsg = paymentData?.errors?.[0]?.description || "Falha ao processar pagamento com cartão";
       return new Response(
-        JSON.stringify({ error: errorMsg, details: paymentData }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: `Asaas: ${asaasMsg}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
