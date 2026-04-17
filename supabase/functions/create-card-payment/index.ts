@@ -146,11 +146,12 @@ serve(async (req) => {
 
     const customerData = await customerRes.json();
     const customerId = customerData.id;
-    if (!customerId) {
+    if (!customerRes.ok || !customerId) {
       console.error("Asaas customer error:", customerData);
+      const asaasMsg = customerData?.errors?.[0]?.description || "Falha ao validar cliente no Asaas";
       return new Response(
-        JSON.stringify({ error: "Failed to create/find customer", details: customerData }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: `Asaas: ${asaasMsg}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
