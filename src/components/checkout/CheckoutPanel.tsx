@@ -135,14 +135,20 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
           customer_name: formData.name,
         },
       });
+      const asaasError = data?.error || (error as any)?.message;
+      if (asaasError) {
+        toast({ title: asaasError, variant: "destructive" });
+        return;
+      }
       if (error) throw error;
       setPixCode(data.pix_code || "");
       setQrCodeImage(data.qr_code_image || null);
       setPixPaymentId(data.payment_id || "");
       setPixGenerated(true);
       countdown.start();
-    } catch {
-      toast({ title: "Erro ao gerar PIX", variant: "destructive" });
+    } catch (err: any) {
+      const msg = err?.message || "Erro ao gerar PIX";
+      toast({ title: msg, variant: "destructive" });
     } finally {
       setIsGeneratingPix(false);
     }
