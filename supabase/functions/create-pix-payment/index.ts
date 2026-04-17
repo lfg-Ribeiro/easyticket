@@ -76,9 +76,10 @@ serve(async (req) => {
       const paymentData = await paymentRes.json();
       if (!paymentRes.ok || !paymentData.id) {
         console.error("Asaas payment error:", paymentData);
+        const asaasMsg = paymentData?.errors?.[0]?.description || "Falha ao gerar cobrança PIX no Asaas";
         return new Response(
-          JSON.stringify({ error: "Failed to create payment in Asaas", details: paymentData }),
-          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: `Asaas: ${asaasMsg}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
