@@ -257,6 +257,12 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
         },
       });
 
+      const asaasError = data?.error || (error as any)?.message;
+      if (asaasError && !data?.confirmed) {
+        toast({ title: asaasError, variant: "destructive" });
+        setStep("form");
+        return;
+      }
       if (error) throw error;
       if (data?.confirmed || data?.status === "CONFIRMED" || data?.status === "RECEIVED") {
         toast({ title: "Pagamento aprovado! 🎉" });
@@ -272,9 +278,10 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
         toast({ title: "Pagamento não aprovado. Verifique os dados do cartão.", variant: "destructive" });
         setStep("form");
       }
-    } catch {
+    } catch (err: any) {
       setStep("form");
-      toast({ title: "Erro ao processar pagamento com cartão", variant: "destructive" });
+      const msg = err?.message || "Erro ao processar pagamento com cartão";
+      toast({ title: msg, variant: "destructive" });
     }
   };
 
