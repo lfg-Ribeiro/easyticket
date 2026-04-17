@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +13,9 @@ serve(async (req) => {
   }
 
   try {
-    const { amount, customer_cpf, customer_name } = await req.json();
+    const { amount, customer_cpf, customer_name, order_id } = await req.json();
+
+    console.log("💰 [PIX] Received request. order_id:", order_id, "amount:", amount);
 
     if (!amount || !customer_cpf || !customer_name) {
       return new Response(
@@ -70,6 +73,7 @@ serve(async (req) => {
           value: Number(amount),
           dueDate: today,
           description: "Ingresso EasyTicket",
+          externalReference: order_id || undefined,
         }),
       });
 
@@ -81,6 +85,23 @@ serve(async (req) => {
           JSON.stringify({ error: `Asaas: ${asaasMsg}` }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // 2.5 CRITICAL: Save Asaas payment.id to order.transaction_id so webhook can find it
+      if (order_id) {
+        const supabaseAdmin = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        const { error: updateErr } = await supabaseAdmin
+          .from("orders")
+          .update({ transaction_id: paymentData.id })
+          .eq("id", order_id);
+        if (updateErr) {
+          console.error("⚠️ [PIX] Failed to link order to Asaas payment id:", updateErr);
+        } else {
+          console.log(`🔗 [PIX] Order ${order_id} linked to Asaas payment ${paymentData.id}`);
+        }
       }
 
       // 3. Get PIX QR Code
@@ -104,8 +125,7 @@ serve(async (req) => {
     }
 
     // ── Mock / Simulation Mode ──
-    console.log("💰 [MOCK PIX] ASAAS_API_KEY not configured. Simulating PIX payment:");
-    console.log(JSON.stringify({ amount, customer_cpf, customer_name }, null, 2));
+    console.log("💰 [MOCK PIX] ASAAS_API_KEY not configured. Simulating PIX payment.");
 
     const mockPaymentId = `pay_mock_${Date.now().toString(36)}`;
     const mockPixCode = `00020126580014br.gov.bcb.pix0136${crypto.randomUUID()}520400005303986540${Number(amount).toFixed(2)}5802BR5913EASYTICKET6009SAO_PAULO62070503***6304ABCD`;

@@ -13,13 +13,29 @@ serve(async (req) => {
   }
 
   try {
+    console.log("🚀 [WEBHOOK] Asaas webhook invoked");
+
+    // Optional signature verification
+    const expectedSecret = Deno.env.get("ASAAS_WEBHOOK_SECRET");
+    if (expectedSecret) {
+      const receivedToken = req.headers.get("asaas-access-token") || req.headers.get("Asaas-Access-Token");
+      console.log("🔐 [WEBHOOK] Token check. Expected set:", !!expectedSecret, "Received present:", !!receivedToken);
+      if (receivedToken !== expectedSecret) {
+        console.error("❌ [WEBHOOK] Invalid webhook secret token");
+        return new Response(JSON.stringify({ received: true, error: "invalid token" }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const body = await req.json();
     const event = body.event;
-    console.log(`📩 Asaas webhook received: ${event}`);
+    console.log(`📩 [WEBHOOK] Event: ${event}`);
 
     // Only process payment confirmations
     if (event !== "PAYMENT_RECEIVED" && event !== "PAYMENT_CONFIRMED") {
-      console.log(`⏭️ Ignoring event: ${event}`);
+      console.log(`⏭️ [WEBHOOK] Ignoring event: ${event}`);
       return new Response(JSON.stringify({ received: true }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -27,30 +43,53 @@ serve(async (req) => {
     }
 
     const paymentId = body.payment?.id;
+    const externalReference = body.payment?.externalReference;
     if (!paymentId) {
-      console.error("❌ No payment.id in webhook payload");
+      console.error("❌ [WEBHOOK] No payment.id in payload");
       return new Response(JSON.stringify({ received: true, error: "no payment id" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`💳 Processing confirmed payment: ${paymentId}`);
+    console.log(`💳 [WEBHOOK] Processing payment: ${paymentId} | externalReference: ${externalReference || "none"}`);
 
+    // CRITICAL: Use SERVICE_ROLE_KEY to bypass RLS for UPDATE
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Find order by transaction_id matching the Asaas payment id
-    const { data: order, error: findError } = await supabaseAdmin
+    // Try to find order by transaction_id (Asaas payment id)
+    let { data: order, error: findError } = await supabaseAdmin
       .from("orders")
       .select("id, payment_status, quantity, buyer_name, buyer_email, event_id")
       .eq("transaction_id", paymentId)
-      .single();
+      .maybeSingle();
 
-    if (findError || !order) {
-      console.error("❌ Order not found for payment:", paymentId, findError);
+    // Fallback: find by externalReference (order id) if transaction_id wasn't linked yet
+    if ((!order || findError) && externalReference) {
+      console.log(`🔍 [WEBHOOK] Fallback lookup by externalReference: ${externalReference}`);
+      const fallback = await supabaseAdmin
+        .from("orders")
+        .select("id, payment_status, quantity, buyer_name, buyer_email, event_id")
+        .eq("id", externalReference)
+        .maybeSingle();
+      order = fallback.data;
+      findError = fallback.error;
+
+      // Backfill transaction_id so future events match directly
+      if (order) {
+        await supabaseAdmin
+          .from("orders")
+          .update({ transaction_id: paymentId })
+          .eq("id", order.id);
+        console.log(`🔗 [WEBHOOK] Backfilled transaction_id for order ${order.id}`);
+      }
+    }
+
+    if (!order) {
+      console.error("❌ [WEBHOOK] Order not found for payment:", paymentId, findError);
       return new Response(JSON.stringify({ received: true, error: "order not found" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -59,12 +98,14 @@ serve(async (req) => {
 
     // Skip if already confirmed
     if (order.payment_status === "confirmed" || order.payment_status === "paid") {
-      console.log(`✅ Order ${order.id} already confirmed, skipping`);
+      console.log(`✅ [WEBHOOK] Order ${order.id} already confirmed, skipping`);
       return new Response(JSON.stringify({ received: true, already_confirmed: true }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    console.log(`🔄 [WEBHOOK] Updating order ${order.id} from '${order.payment_status}' → 'confirmed'`);
 
     // Update order status to confirmed
     const { error: updateError } = await supabaseAdmin
@@ -73,9 +114,9 @@ serve(async (req) => {
       .eq("id", order.id);
 
     if (updateError) {
-      console.error("❌ Failed to update order:", updateError);
+      console.error("❌ [WEBHOOK] Failed to update order:", updateError);
     } else {
-      console.log(`✅ Order ${order.id} updated to confirmed via webhook`);
+      console.log(`✅ [WEBHOOK] Order ${order.id} updated to confirmed`);
     }
 
     // Send confirmation email via Resend
