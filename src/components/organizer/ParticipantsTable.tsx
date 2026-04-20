@@ -22,9 +22,13 @@ interface Participant {
   eventTitle: string;
 }
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
+const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   confirmed: { label: "Confirmado", variant: "default" },
+  paid: { label: "Confirmado", variant: "default" },
+  approved: { label: "Confirmado", variant: "default" },
   pending: { label: "Pendente", variant: "secondary" },
+  failed: { label: "Falhou", variant: "destructive" },
+  expired: { label: "Expirado", variant: "outline" },
   refunded: { label: "Reembolsado", variant: "destructive" },
 };
 
@@ -48,15 +52,15 @@ export function ParticipantsTable() {
             event_id,
             batch_id
           `)
+          .not("order_id", "is", null)
           .order("created_at", { ascending: false })
-          .limit(100);
+          .limit(200);
 
         if (!tickets || tickets.length === 0) {
           setParticipants([]);
           return;
         }
 
-        // Fetch related orders and events
         const orderIds = [...new Set(tickets.map(t => t.order_id))];
         const eventIds = [...new Set(tickets.map(t => t.event_id))];
         const batchIds = [...new Set(tickets.filter(t => t.batch_id).map(t => t.batch_id!))];
@@ -73,16 +77,22 @@ export function ParticipantsTable() {
         const eventsMap = new Map((eventsRes.data || []).map(e => [e.id, e]));
         const batchesMap = new Map((batchesRes.data || []).map(b => [b.id, b]));
 
+        // Only show tickets that have a matching order (drops phantom test data)
+        const validTickets = tickets.filter(t => ordersMap.has(t.order_id));
+
         setParticipants(
-          tickets.map(t => ({
-            id: t.id,
-            name: t.holder_name,
-            email: t.holder_email,
-            ticketType: t.batch_id ? (batchesMap.get(t.batch_id)?.name || "Ingresso") : "Ingresso",
-            paymentStatus: ordersMap.get(t.order_id)?.payment_status || "confirmed",
-            purchaseDate: t.created_at,
-            eventTitle: eventsMap.get(t.event_id)?.title || "",
-          }))
+          validTickets.slice(0, 100).map(t => {
+            const order = ordersMap.get(t.order_id)!;
+            return {
+              id: t.id,
+              name: t.holder_name,
+              email: t.holder_email,
+              ticketType: t.batch_id ? (batchesMap.get(t.batch_id)?.name || "Ingresso") : "Ingresso",
+              paymentStatus: order.payment_status,
+              purchaseDate: t.created_at,
+              eventTitle: eventsMap.get(t.event_id)?.title || "",
+            };
+          })
         );
       } catch (err) {
         console.error("Participants fetch error:", err);
