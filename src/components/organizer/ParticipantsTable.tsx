@@ -22,9 +22,13 @@ interface Participant {
   eventTitle: string;
 }
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
+const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   confirmed: { label: "Confirmado", variant: "default" },
+  paid: { label: "Confirmado", variant: "default" },
+  approved: { label: "Confirmado", variant: "default" },
   pending: { label: "Pendente", variant: "secondary" },
+  failed: { label: "Falhou", variant: "destructive" },
+  expired: { label: "Expirado", variant: "outline" },
   refunded: { label: "Reembolsado", variant: "destructive" },
 };
 
