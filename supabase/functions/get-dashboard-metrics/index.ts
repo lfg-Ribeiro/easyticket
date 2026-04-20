@@ -50,13 +50,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch confirmed/paid orders (bypasses RLS via service role)
+    // Confirmed/paid orders only — never count pending/failed/expired
+    const CONFIRMED_STATUSES = ["confirmed", "paid", "approved"];
+
     const { data: orders, error: ordersError } = await supabaseAdmin
       .from("orders")
-      .select("total_amount, service_fee, quantity, payment_status")
-      .in("payment_status", ["confirmed", "paid"]);
+      .select("id, total_amount, service_fee, quantity, payment_status")
+      .in("payment_status", CONFIRMED_STATUSES);
 
-    console.log("Orders fetched:", orders?.length, "Error:", ordersError);
+    console.log("Confirmed orders fetched:", orders?.length, "Error:", ordersError);
 
     const total_revenue = (orders || []).reduce(
       (sum: number, o: any) => sum + Number(o.total_amount),
@@ -71,16 +73,22 @@ Deno.serve(async (req) => {
       0
     );
 
-    // Fetch check-ins
-    const { data: tickets, error: ticketsError } = await supabaseAdmin
-      .from("tickets")
-      .select("check_in_status");
+    const confirmedOrderIds = (orders || []).map((o: any) => o.id);
 
-    console.log("Tickets fetched:", tickets?.length, "Error:", ticketsError);
+    // Check-ins only from tickets tied to confirmed orders
+    let total_checkins = 0;
+    if (confirmedOrderIds.length > 0) {
+      const { data: tickets, error: ticketsError } = await supabaseAdmin
+        .from("tickets")
+        .select("check_in_status, order_id")
+        .in("order_id", confirmedOrderIds);
 
-    const total_checkins = (tickets || []).filter(
-      (t: any) => t.check_in_status === "used"
-    ).length;
+      console.log("Tickets fetched:", tickets?.length, "Error:", ticketsError);
+
+      total_checkins = (tickets || []).filter(
+        (t: any) => t.check_in_status === "used"
+      ).length;
+    }
 
     // Fetch events count
     const { data: events, error: eventsError } = await supabaseAdmin
