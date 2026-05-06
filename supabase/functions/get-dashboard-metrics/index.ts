@@ -99,9 +99,9 @@ Deno.serve(async (req) => {
     console.log("Events fetched:", events?.length, "Error:", eventsError);
 
     const result = {
-      total_revenue,
-      total_fees,
-      net_receivable: total_revenue - total_fees,
+      total_revenue,                  // organizer revenue = subtotal only
+      total_fees,                     // platform fees (hidden from organizer payout)
+      net_receivable: total_revenue,  // organizer keeps 100% of subtotal
       total_tickets,
       total_checkins,
       total_events: events?.length || 0,
