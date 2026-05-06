@@ -45,7 +45,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
   });
 
   const subtotal = event.price * quantity;
-  const serviceFee = subtotal * 0.05;
+  const serviceFee = Math.max(subtotal * 0.05, 2.5);
   const total = subtotal + serviceFee;
 
   const formatCurrency = (value: number) =>
