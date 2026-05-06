@@ -55,17 +55,18 @@ Deno.serve(async (req) => {
 
     const { data: orders, error: ordersError } = await supabaseAdmin
       .from("orders")
-      .select("id, total_amount, service_fee, quantity, payment_status")
+      .select("id, subtotal, total_amount, service_fee, platform_fee, quantity, payment_status")
       .in("payment_status", CONFIRMED_STATUSES);
 
     console.log("Confirmed orders fetched:", orders?.length, "Error:", ordersError);
 
+    // Organizer revenue = strictly the subtotal (ticket value), NEVER the platform fee
     const total_revenue = (orders || []).reduce(
-      (sum: number, o: any) => sum + Number(o.total_amount),
+      (sum: number, o: any) => sum + Number(o.subtotal ?? (Number(o.total_amount) - Number(o.platform_fee ?? o.service_fee ?? 0))),
       0
     );
     const total_fees = (orders || []).reduce(
-      (sum: number, o: any) => sum + Number(o.service_fee),
+      (sum: number, o: any) => sum + Number(o.platform_fee ?? o.service_fee ?? 0),
       0
     );
     const total_tickets = (orders || []).reduce(
@@ -98,9 +99,9 @@ Deno.serve(async (req) => {
     console.log("Events fetched:", events?.length, "Error:", eventsError);
 
     const result = {
-      total_revenue,
-      total_fees,
-      net_receivable: total_revenue - total_fees,
+      total_revenue,                  // organizer revenue = subtotal only
+      total_fees,                     // platform fees (hidden from organizer payout)
+      net_receivable: total_revenue,  // organizer keeps 100% of subtotal
       total_tickets,
       total_checkins,
       total_events: events?.length || 0,

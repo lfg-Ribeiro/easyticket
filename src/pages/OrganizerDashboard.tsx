@@ -79,18 +79,20 @@ export default function OrganizerDashboard() {
 
       setMyEvents((events as DBEvent[]) || []);
 
-      // Fetch per-event stats (sold count + revenue from confirmed orders)
+      // Fetch per-event stats (sold count + organizer revenue from confirmed orders, subtotal only)
       if (events && events.length > 0) {
         const { data: orders } = await supabase
           .from("orders")
-          .select("event_id, quantity, total_amount, payment_status")
+          .select("event_id, quantity, subtotal, total_amount, platform_fee, service_fee, payment_status")
           .in("payment_status", ["confirmed", "paid"]);
 
         const stats: EventStats = {};
         (orders || []).forEach((o: any) => {
           if (!stats[o.event_id]) stats[o.event_id] = { sold: 0, revenue: 0 };
           stats[o.event_id].sold += o.quantity;
-          stats[o.event_id].revenue += Number(o.total_amount);
+          const fee = Number(o.platform_fee ?? o.service_fee ?? 0);
+          const sub = o.subtotal != null ? Number(o.subtotal) : Number(o.total_amount) - fee;
+          stats[o.event_id].revenue += sub;
         });
         setEventStats(stats);
       }

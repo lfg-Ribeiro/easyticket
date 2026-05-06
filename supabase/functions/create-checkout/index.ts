@@ -155,7 +155,7 @@ serve(async (req) => {
     }
 
     const subtotal = batchPrice * quantity;
-    const serviceFee = event.fee_absorbed ? 0 : subtotal * 0.05;
+    const serviceFee = event.fee_absorbed ? 0 : Math.max(subtotal * 0.05, 2.5);
     const totalAmount = subtotal + serviceFee;
 
     const transactionId = `TXN-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
@@ -171,6 +171,7 @@ serve(async (req) => {
         quantity,
         subtotal,
         service_fee: serviceFee,
+        platform_fee: serviceFee,
         total_amount: totalAmount,
         payment_method: payment_method || "pix",
         payment_status: "pending",

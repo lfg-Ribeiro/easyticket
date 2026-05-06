@@ -75,6 +75,7 @@ export type Database = {
           id: string
           payment_method: string
           payment_status: string
+          platform_fee: number
           quantity: number
           service_fee: number
           subtotal: number
@@ -90,6 +91,7 @@ export type Database = {
           id?: string
           payment_method?: string
           payment_status?: string
+          platform_fee?: number
           quantity?: number
           service_fee?: number
           subtotal?: number
@@ -105,6 +107,7 @@ export type Database = {
           id?: string
           payment_method?: string
           payment_status?: string
+          platform_fee?: number
           quantity?: number
           service_fee?: number
           subtotal?: number
