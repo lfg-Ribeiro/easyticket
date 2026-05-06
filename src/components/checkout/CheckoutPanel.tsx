@@ -566,7 +566,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
           <span>{formatCurrency(subtotal)}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Taxa de serviço (5%)</span>
+          <span className="text-muted-foreground">Taxa de serviço</span>
           <span>{formatCurrency(serviceFee)}</span>
         </div>
         <div className="flex justify-between pt-2 border-t border-border">
