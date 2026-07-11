@@ -1,5 +1,6 @@
 import { MoreVertical, Eye, Copy, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { BatchManager } from "@/components/organizer/BatchManager";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,6 +74,7 @@ export function EventListItem({ event, soldCount, revenue }: EventListItemProps)
           </span>
           <span className="font-semibold text-primary">{formattedRevenue}</span>
         </div>
+        <BatchManager eventId={event.id} />
       </div>
     </div>
   );

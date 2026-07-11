@@ -30,7 +30,7 @@ const Index = () => {
           cover_image_url,
           category,
           fee_absorbed,
-          ticket_batches (name, price, available_quantity, status)
+          ticket_batches (name, price, available_quantity, status, is_active, sort_order)
         `)
         .eq("published", true)
         .gte("event_date", new Date().toISOString().split('T')[0])
@@ -39,7 +39,12 @@ const Index = () => {
       if (data) {
         const mapped: Event[] = data.map((e: any) => {
           const batches = e.ticket_batches || [];
-          const activeBatch = batches.find((b: any) => b.status === "active");
+          // Prefer the manually activated batch; fallback to first in-stock batch by sort order
+          const activeBatch =
+            batches.find((b: any) => b.is_active && b.available_quantity > 0) ||
+            batches
+              .filter((b: any) => b.available_quantity > 0)
+              .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0];
           const activePrice = activeBatch ? Number(activeBatch.price) : (batches.length > 0 ? Math.min(...batches.map((b: any) => Number(b.price))) : 0);
           const totalAvailable = activeBatch ? activeBatch.available_quantity : batches.reduce((sum: number, b: any) => sum + (b.available_quantity || 0), 0);
 

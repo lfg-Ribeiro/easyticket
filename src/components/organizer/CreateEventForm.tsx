@@ -187,6 +187,7 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
           available_quantity: parseInt(b.quantity),
           sort_order: index,
           status: index === 0 ? "active" : "inactive",
+          is_active: index === 0,
         }));
 
         const { error: batchError } = await supabase
