@@ -33,15 +33,20 @@ export default function EventDetail() {
         .select(`
           id, title, description, event_date, event_time,
           location, venue, cover_image_url, category, fee_absorbed,
-          ticket_batches (id, name, price, available_quantity, status, sort_order)
+          ticket_batches (id, name, price, available_quantity, status, is_active, sort_order)
         `)
         .eq("id", id)
         .maybeSingle();
 
       if (data) {
         const batches = (data as any).ticket_batches || [];
-        // Find the active batch (status = 'active')
-        const activeBatch = batches.find((b: any) => b.status === "active");
+        // Prefer the batch explicitly marked as active (is_active = true).
+        // Fallback (e.g. new events with no manual selection): first batch with stock by sort order.
+        const activeBatch =
+          batches.find((b: any) => b.is_active && b.available_quantity > 0) ||
+          batches
+            .filter((b: any) => b.available_quantity > 0)
+            .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0];
         const totalAvailable = batches.reduce((sum: number, b: any) => sum + (b.available_quantity || 0), 0);
 
         setEvent({
