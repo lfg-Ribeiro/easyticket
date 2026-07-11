@@ -74,6 +74,7 @@ export function EventListItem({ event, soldCount, revenue }: EventListItemProps)
           </span>
           <span className="font-semibold text-primary">{formattedRevenue}</span>
         </div>
+        <BatchManager eventId={event.id} />
       </div>
     </div>
   );
