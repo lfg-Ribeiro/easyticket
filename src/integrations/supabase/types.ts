@@ -163,6 +163,7 @@ export type Database = {
           created_at: string
           event_id: string
           id: string
+          is_active: boolean
           name: string
           price: number
           sort_order: number
@@ -174,6 +175,7 @@ export type Database = {
           created_at?: string
           event_id: string
           id?: string
+          is_active?: boolean
           name: string
           price?: number
           sort_order?: number
@@ -185,6 +187,7 @@ export type Database = {
           created_at?: string
           event_id?: string
           id?: string
+          is_active?: boolean
           name?: string
           price?: number
           sort_order?: number
@@ -294,6 +297,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_batch: { Args: { p_batch_id: string }; Returns: Json }
       cleanup_expired_orders: { Args: never; Returns: Json }
       consume_batch_tickets: {
         Args: { p_batch_id: string; p_quantity: number }
