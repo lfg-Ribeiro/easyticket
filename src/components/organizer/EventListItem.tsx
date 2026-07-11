@@ -1,5 +1,6 @@
 import { MoreVertical, Eye, Copy, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { BatchManager } from "@/components/organizer/BatchManager";
 import {
   DropdownMenu,
   DropdownMenuContent,
