@@ -50,6 +50,7 @@ interface BatchRow {
   price: string;
   total_quantity: string;
   available_quantity: number;
+  original_total: number;
   is_active: boolean;
   sort_order: number;
   isNew?: boolean;
