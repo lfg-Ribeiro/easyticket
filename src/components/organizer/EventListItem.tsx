@@ -1,6 +1,7 @@
-import { MoreVertical, Eye, Copy, Trash2 } from "lucide-react";
+import { MoreVertical, Eye, Copy, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { BatchManager } from "@/components/organizer/BatchManager";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,12 +17,14 @@ interface EventListItemProps {
     date: string;
     time: string;
     image: string;
+    published?: boolean;
   };
   soldCount: number;
   revenue: number;
+  onEdit?: (eventId: string) => void;
 }
 
-export function EventListItem({ event, soldCount, revenue }: EventListItemProps) {
+export function EventListItem({ event, soldCount, revenue, onEdit }: EventListItemProps) {
   const navigate = useNavigate();
 
   const formattedRevenue = new Intl.NumberFormat("pt-BR", {
