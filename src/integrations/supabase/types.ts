@@ -19,8 +19,10 @@ export type Database = {
           category: string
           cover_image_url: string | null
           created_at: string
+          deleted_at: string | null
           description: string | null
           event_date: string
+          event_end_time: string | null
           event_time: string
           fee_absorbed: boolean
           id: string
@@ -35,8 +37,10 @@ export type Database = {
           category?: string
           cover_image_url?: string | null
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           event_date: string
+          event_end_time?: string | null
           event_time: string
           fee_absorbed?: boolean
           id?: string
@@ -51,8 +55,10 @@ export type Database = {
           category?: string
           cover_image_url?: string | null
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           event_date?: string
+          event_end_time?: string | null
           event_time?: string
           fee_absorbed?: boolean
           id?: string

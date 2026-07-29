@@ -36,6 +36,7 @@ export default function EventDetail() {
           ticket_batches (id, name, price, available_quantity, status, is_active, sort_order)
         `)
         .eq("id", id)
+        .is("deleted_at", null)
         .maybeSingle();
 
       if (data) {

@@ -8,6 +8,7 @@ import { SalesChart } from "@/components/organizer/SalesChart";
 import { ParticipantsTable } from "@/components/organizer/ParticipantsTable";
 import { CreateEventForm } from "@/components/organizer/CreateEventForm";
 import { EventListItem } from "@/components/organizer/EventListItem";
+import { EditEventForm } from "@/components/organizer/EditEventForm";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -22,6 +23,7 @@ interface DBEvent {
   cover_image_url: string | null;
   category: string;
   published: boolean;
+  deleted_at?: string | null;
 }
 
 interface EventStats {
@@ -32,6 +34,8 @@ export default function OrganizerDashboard() {
   const navigate = useNavigate();
   const { user, session, isOrganizer } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [listVersion, setListVersion] = useState(0);
   const [myEvents, setMyEvents] = useState<DBEvent[]>([]);
   const [eventStats, setEventStats] = useState<EventStats>({});
   const [totalSales, setTotalSales] = useState(0);
@@ -75,6 +79,7 @@ export default function OrganizerDashboard() {
       const { data: events } = await supabase
         .from("events")
         .select("*")
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       setMyEvents((events as DBEvent[]) || []);
@@ -133,6 +138,7 @@ export default function OrganizerDashboard() {
     date: e.event_date,
     time: e.event_time,
     image: e.cover_image_url || "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop",
+    published: e.published,
   }));
 
   return (
@@ -194,7 +200,8 @@ export default function OrganizerDashboard() {
             <div className="space-y-4">
               {eventListItems.map((event) => (
                 <EventListItem
-                  key={event.id}
+                  key={`${event.id}-${listVersion}`}
+                  onEdit={setEditingEventId}
                   event={event}
                   soldCount={eventStats[event.id]?.sold || 0}
                   revenue={eventStats[event.id]?.revenue || 0}
@@ -237,6 +244,17 @@ export default function OrganizerDashboard() {
           open={createOpen}
           onOpenChange={setCreateOpen}
           onEventCreated={fetchDashboardData}
+        />
+
+        {/* Edit Event Modal */}
+        <EditEventForm
+          eventId={editingEventId}
+          open={!!editingEventId}
+          onOpenChange={(open) => !open && setEditingEventId(null)}
+          onSaved={() => {
+            setListVersion((v) => v + 1);
+            fetchDashboardData();
+          }}
         />
       </div>
     </MainLayout>
