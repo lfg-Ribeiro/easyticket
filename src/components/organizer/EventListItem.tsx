@@ -47,26 +47,48 @@ export function EventListItem({ event, soldCount, revenue, onEdit }: EventListIt
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-foreground line-clamp-1">
-            {event.title}
-          </h3>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="p-1 hover:bg-secondary rounded-lg transition-colors">
-                <MoreVertical className="h-5 w-5 text-muted-foreground" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/event/${event.id}`)}>
-                <Eye className="h-4 w-4 mr-2" />
-                Visualizar
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleCopyLink}>
-                <Copy className="h-4 w-4 mr-2" />
-                Copiar Link
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-foreground line-clamp-1">
+              {event.title}
+            </h3>
+            {event.published === false && (
+              <span className="inline-block mt-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                Pausado
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onEdit?.(event.id)}
+              aria-label={`Editar ${event.title}`}
+            >
+              <Pencil className="h-4 w-4 text-muted-foreground" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="p-1 hover:bg-secondary rounded-lg transition-colors">
+                  <MoreVertical className="h-5 w-5 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate(`/event/${event.id}`)}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Visualizar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onEdit?.(event.id)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCopyLink}>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copiar Link
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         <p className="text-sm text-muted-foreground mb-2">
           {new Date(event.date).toLocaleDateString("pt-BR")} • {event.time}
@@ -78,6 +100,7 @@ export function EventListItem({ event, soldCount, revenue, onEdit }: EventListIt
           <span className="font-semibold text-primary">{formattedRevenue}</span>
         </div>
         <BatchManager eventId={event.id} />
+
       </div>
     </div>
   );
