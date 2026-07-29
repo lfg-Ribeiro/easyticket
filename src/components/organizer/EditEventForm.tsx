@@ -131,6 +131,7 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
         price: String(b.price ?? ""),
         total_quantity: String(b.total_quantity ?? ""),
         available_quantity: b.available_quantity ?? 0,
+        original_total: b.total_quantity ?? 0,
         is_active: !!b.is_active,
         sort_order: b.sort_order ?? 0,
       }))
@@ -159,6 +160,7 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
         price: "",
         total_quantity: "",
         available_quantity: 0,
+        original_total: 0,
         is_active: false,
         sort_order: prev.length,
         isNew: true,
@@ -241,18 +243,15 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
         if (!b.name || !b.price || !b.total_quantity) continue;
         const total = parseInt(b.total_quantity, 10);
         if (b.id) {
-          const sold = Number(b.total_quantity) >= 0 ? 0 : 0;
-          const previouslySold = Math.max(0, (b.available_quantity ?? 0) * -1 + 0);
-          void sold;
-          void previouslySold;
+          const sold = Math.max(0, b.original_total - b.available_quantity);
           const { error } = await supabase
             .from("ticket_batches")
             .update({
               name: b.name,
               price: parseFloat(b.price),
               total_quantity: total,
-              // keep stock consistent: never allow negative availability
-              available_quantity: Math.max(0, Math.min(b.available_quantity, total)),
+              // keep stock consistent with what has already been sold
+              available_quantity: Math.max(0, total - sold),
               is_active: b.is_active,
               sort_order: i,
               status: b.is_active ? "active" : "inactive",
