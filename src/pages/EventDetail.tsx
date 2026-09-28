@@ -172,7 +172,7 @@ export default function EventDetail() {
               )}
               <div className="mb-8">
                 <h2 className="text-base font-semibold text-foreground mb-2">Sobre o evento</h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">{event.description}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{event.description}</p>
               </div>
             </div>
           </div>
@@ -221,7 +221,7 @@ export default function EventDetail() {
             )}
             <div className="mb-6">
               <h2 className="text-base font-semibold text-foreground mb-2">Sobre o evento</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">{event.description}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{event.description}</p>
             </div>
           </div>
         </div>
