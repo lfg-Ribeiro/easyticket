@@ -44,7 +44,7 @@ serve(async (req) => {
 
     console.log("🔍 [VALIDATE] User:", user.email);
 
-    const { qr_code } = await req.json();
+    const { qr_code, event_id: expectedEventId } = await req.json();
     if (!qr_code) {
       return new Response(
         JSON.stringify({ error: "QR code is required" }),
@@ -89,8 +89,19 @@ serve(async (req) => {
     // Verify organizer owns this event OR is super admin
     const isSuperAdmin = user.email === "lribeiro@easyticket.com";
     const isOrganizer = ticket.events?.organizer_id === user.id;
+    const { data: staffRoles } = await supabaseAdmin
+      .from("user_roles").select("role").eq("user_id", user.id).in("role", ["admin", "validator"]);
+    const isStaff = (staffRoles?.length ?? 0) > 0;
 
-    if (!isOrganizer && !isSuperAdmin) {
+    const body_event_id = expectedEventId;
+    if (isStaff && body_event_id && ticket.event_id !== body_event_id) {
+      return new Response(
+        JSON.stringify({ status: "invalid", message: "Evento Incorreto", description: "Este ingresso pertence a outro evento." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!isOrganizer && !isSuperAdmin && !isStaff) {
       console.error("❌ [VALIDATE] Not authorized. User:", user.id, "Organizer:", ticket.events?.organizer_id);
       return new Response(
         JSON.stringify({ error: "Not authorized for this event" }),

@@ -32,7 +32,19 @@ interface EventStats {
 
 export default function OrganizerDashboard() {
   const navigate = useNavigate();
-  const { user, session, isOrganizer } = useAuth();
+  const { user, session, isOrganizer, isAdmin } = useAuth();
+  const [seeding, setSeeding] = useState(false);
+  const seedValidators = async () => {
+    setSeeding(true);
+    const { data, error } = await supabase.functions.invoke("seed-validators");
+    setSeeding(false);
+    if (error || data?.error) {
+      toast({ title: "Erro ao gerar validadores", description: data?.error || error?.message, variant: "destructive" });
+      return;
+    }
+    const created = (data.results as { status: string }[]).filter((r) => r.status === "criado").length;
+    toast({ title: "Validadores prontos", description: `${created} novas contas criadas (10 no total com acesso a /validador).` });
+  };
   const [createOpen, setCreateOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [listVersion, setListVersion] = useState(0);
@@ -155,6 +167,11 @@ export default function OrganizerDashboard() {
             </p>
           </div>
           <div className="hidden md:flex gap-3">
+            {(user?.email === "lribeiro@easyticket.com" || isAdmin) && (
+              <Button variant="outline" disabled={seeding} onClick={seedValidators}>
+                {seeding ? "Criando..." : "Gerar Validadores"}
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => navigate("/organizer/scan")}
