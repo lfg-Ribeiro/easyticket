@@ -7,6 +7,9 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isOrganizer: boolean;
+  isAdmin: boolean;
+  isValidator: boolean;
+  rolesLoaded: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string, cpf?: string, phone?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -19,6 +22,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOrganizer, setIsOrganizer] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isValidator, setIsValidator] = useState(false);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
   const recoveryHandled = useRef(false);
 
   useEffect(() => {
@@ -39,6 +45,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }, 0);
         } else {
           setIsOrganizer(false);
+          setIsAdmin(false);
+          setIsValidator(false);
+          setRolesLoaded(true);
         }
       }
     );
@@ -48,6 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         checkOrganizerRole(session.user.id);
+      } else {
+        setRolesLoaded(true);
       }
       setLoading(false);
     });
@@ -59,11 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", userId)
-      .eq("role", "organizer")
-      .maybeSingle();
-
-    setIsOrganizer(!!data);
+      .eq("user_id", userId);
+    const roles = (data ?? []).map((r) => r.role as string);
+    setIsOrganizer(roles.includes("organizer"));
+    setIsAdmin(roles.includes("admin"));
+    setIsValidator(roles.includes("validator"));
+    setRolesLoaded(true);
   };
 
   const signIn = async (email: string, password: string) => {
@@ -87,10 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setIsOrganizer(false);
+    setIsAdmin(false);
+    setIsValidator(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isOrganizer, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isOrganizer, isAdmin, isValidator, rolesLoaded, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

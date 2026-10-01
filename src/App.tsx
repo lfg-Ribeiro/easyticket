@@ -15,6 +15,7 @@ import OrganizerScan from "./pages/OrganizerScan";
 import Auth from "./pages/Auth";
 import UpdatePassword from "./pages/UpdatePassword";
 import SaibaMais from "./pages/SaibaMais";
+import Validator from "./pages/Validator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,7 @@ const App = () => (
                 </ProtectedOrganizerRoute>
               }
             />
+            <Route path="/validador" element={<Validator />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

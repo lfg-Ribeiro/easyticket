@@ -155,6 +155,11 @@ export default function OrganizerDashboard() {
             </p>
           </div>
           <div className="hidden md:flex gap-3">
+            {(user?.email === "lribeiro@easyticket.com" || isAdmin) && (
+              <Button variant="outline" disabled={seeding} onClick={seedValidators}>
+                {seeding ? "Criando..." : "Gerar Validadores"}
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => navigate("/organizer/scan")}
