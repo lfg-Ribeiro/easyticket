@@ -88,11 +88,18 @@ export default function OrganizerDashboard() {
       }
 
       // Fetch events list (for display)
-      const { data: events } = await supabase
+      const { data: allEvents } = await supabase
         .from("events")
         .select("*")
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
+      let events = allEvents;
+      const seeAll = isAdmin || user?.email === "lribeiro@easyticket.com";
+      if (!seeAll && user) {
+        const { data: links } = await supabase.from("event_organizers").select("event_id").eq("user_id", user.id);
+        const linked = new Set((links || []).map((l) => l.event_id));
+        events = (allEvents || []).filter((e) => e.organizer_id === user.id || linked.has(e.id));
+      }
 
       setMyEvents((events as DBEvent[]) || []);
 
@@ -118,7 +125,7 @@ export default function OrganizerDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [session?.access_token]);
+  }, [session?.access_token, isAdmin, user]);
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
@@ -167,6 +174,9 @@ export default function OrganizerDashboard() {
             </p>
           </div>
           <div className="hidden md:flex gap-3">
+            {(user?.email === "lribeiro@easyticket.com" || isAdmin) && (
+              <Button variant="outline" onClick={() => navigate("/admin/usuarios")}>Gestão de Acessos</Button>
+            )}
             {(user?.email === "lribeiro@easyticket.com" || isAdmin) && (
               <Button variant="outline" disabled={seeding} onClick={seedValidators}>
                 {seeding ? "Criando..." : "Gerar Validadores"}

@@ -11,6 +11,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let scopeIds: string[] | null = null;
   try {
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
