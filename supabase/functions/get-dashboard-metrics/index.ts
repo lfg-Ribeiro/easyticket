@@ -29,13 +29,16 @@ Deno.serve(async (req) => {
         });
       }
       // Only allow organizers or admin master
-      const isAdmin = user.email === "lribeiro@easyticket.com";
-      const { data: roleData } = await supabaseAdmin
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "organizer")
-        .maybeSingle();
+      const { data: roleRows } = await supabaseAdmin
+        .from("user_roles").select("role").eq("user_id", user.id);
+      const roles = (roleRows || []).map((r: any) => r.role);
+      const isAdmin = user.email === "lribeiro@easyticket.com" || roles.includes("admin");
+      const roleData = roles.includes("organizer");
+      if (!isAdmin) {
+        const { data: own } = await supabaseAdmin.from("events").select("id").eq("organizer_id", user.id);
+        const { data: linked } = await supabaseAdmin.from("event_organizers").select("event_id").eq("user_id", user.id);
+        scopeIds = [...new Set([...(own || []).map((e: any) => e.id), ...(linked || []).map((e: any) => e.event_id)])];
+      }
 
       if (!isAdmin && !roleData) {
         return new Response(JSON.stringify({ error: "Forbidden" }), {
@@ -53,10 +56,12 @@ Deno.serve(async (req) => {
     // Confirmed/paid orders only — never count pending/failed/expired
     const CONFIRMED_STATUSES = ["confirmed", "paid", "approved"];
 
-    const { data: orders, error: ordersError } = await supabaseAdmin
+    let ordersQ = supabaseAdmin
       .from("orders")
       .select("id, subtotal, total_amount, service_fee, platform_fee, quantity, payment_status")
       .in("payment_status", CONFIRMED_STATUSES);
+    if (scopeIds) ordersQ = ordersQ.in("event_id", scopeIds.length ? scopeIds : ["00000000-0000-0000-0000-000000000000"]);
+    const { data: orders, error: ordersError } = await ordersQ;
 
     console.log("Confirmed orders fetched:", orders?.length, "Error:", ordersError);
 
@@ -92,9 +97,9 @@ Deno.serve(async (req) => {
     }
 
     // Fetch events count
-    const { data: events, error: eventsError } = await supabaseAdmin
-      .from("events")
-      .select("id");
+    let eventsQ = supabaseAdmin.from("events").select("id").is("deleted_at", null);
+    if (scopeIds) eventsQ = eventsQ.in("id", scopeIds.length ? scopeIds : ["00000000-0000-0000-0000-000000000000"]);
+    const { data: events, error: eventsError } = await eventsQ;
 
     console.log("Events fetched:", events?.length, "Error:", eventsError);
 
