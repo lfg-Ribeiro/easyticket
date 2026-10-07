@@ -8,18 +8,18 @@ import { useMemo } from "react";
 export function Header() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut, isOrganizer } = useAuth();
+  const { user, signOut, canAccessOrganizer } = useAuth();
 
   const navLinks = useMemo(() => {
     const links = [
       { to: "/", label: "Eventos" },
       { to: "/tickets", label: "Meus Ingressos" },
     ];
-    if (isOrganizer) {
+    if (canAccessOrganizer) {
       links.push({ to: "/organizer", label: "Organizador" });
     }
     return links;
-  }, [isOrganizer]);
+  }, [canAccessOrganizer]);
 
   const handleSignOut = async () => {
     await signOut();

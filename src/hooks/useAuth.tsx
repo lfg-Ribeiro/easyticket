@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode } fro
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+export const MASTER_ADMIN_EMAIL = "lribeiro@easyticket.com";
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -9,6 +11,8 @@ interface AuthContextType {
   isOrganizer: boolean;
   isAdmin: boolean;
   isValidator: boolean;
+  isMasterAdmin: boolean;
+  canAccessOrganizer: boolean;
   rolesLoaded: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string, cpf?: string, phone?: string) => Promise<{ error: Error | null }>;
@@ -26,6 +30,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isValidator, setIsValidator] = useState(false);
   const [rolesLoaded, setRolesLoaded] = useState(false);
   const recoveryHandled = useRef(false);
+
+  const isMasterAdmin = user?.email === MASTER_ADMIN_EMAIL;
+  const canAccessOrganizer = isOrganizer || isAdmin || isMasterAdmin;
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -104,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isOrganizer, isAdmin, isValidator, rolesLoaded, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isOrganizer, isAdmin, isValidator, isMasterAdmin, canAccessOrganizer, rolesLoaded, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -8,11 +8,8 @@ interface ProtectedOrganizerRouteProps {
 }
 
 export function ProtectedOrganizerRoute({ children }: ProtectedOrganizerRouteProps) {
-  const { user, loading, isOrganizer } = useAuth();
+  const { user, loading, canAccessOrganizer } = useAuth();
   const navigate = useNavigate();
-
-  // Admin master bypass - avoid false positive toast
-  const isAdminMaster = user?.email === "lribeiro@easyticket.com";
 
   useEffect(() => {
     if (loading) return;
@@ -22,7 +19,7 @@ export function ProtectedOrganizerRoute({ children }: ProtectedOrganizerRoutePro
       return;
     }
 
-    if (!isOrganizer && !isAdminMaster) {
+    if (!canAccessOrganizer) {
       toast({
         title: "Acesso Negado",
         description: "Você não tem permissão para acessar o painel do organizador.",
@@ -30,7 +27,7 @@ export function ProtectedOrganizerRoute({ children }: ProtectedOrganizerRoutePro
       });
       navigate("/", { replace: true });
     }
-  }, [user, loading, isOrganizer, isAdminMaster, navigate]);
+  }, [user, loading, canAccessOrganizer, navigate]);
 
   if (loading) {
     return (
@@ -40,7 +37,7 @@ export function ProtectedOrganizerRoute({ children }: ProtectedOrganizerRoutePro
     );
   }
 
-  if (!user || (!isOrganizer && !isAdminMaster)) return null;
+  if (!user || !canAccessOrganizer) return null;
 
   return <>{children}</>;
 }
