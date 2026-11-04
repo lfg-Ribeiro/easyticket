@@ -13,7 +13,7 @@ interface Batch {
   sort_order: number;
 }
 
-export function BatchManager({ eventId }: { eventId: string }) {
+export function BatchManager({ eventId, readOnly = false }: { eventId: string; readOnly?: boolean }) {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -33,6 +33,7 @@ export function BatchManager({ eventId }: { eventId: string }) {
   }, [fetchBatches]);
 
   const activateBatch = async (batchId: string) => {
+    if (readOnly) return;
     setUpdatingId(batchId);
     // Optimistic UI: only one active at a time
     setBatches((prev) => prev.map((b) => ({ ...b, is_active: b.id === batchId })));
@@ -86,12 +87,14 @@ export function BatchManager({ eventId }: { eventId: string }) {
               {formatPrice(Number(batch.price))} • {batch.available_quantity} disponíveis
             </p>
           </div>
-          <Switch
-            checked={batch.is_active}
-            disabled={batch.is_active || updatingId === batch.id}
-            onCheckedChange={() => activateBatch(batch.id)}
-            aria-label={`Ativar lote ${batch.name}`}
-          />
+          {!readOnly && (
+            <Switch
+              checked={batch.is_active}
+              disabled={batch.is_active || updatingId === batch.id}
+              onCheckedChange={() => activateBatch(batch.id)}
+              aria-label={`Ativar lote ${batch.name}`}
+            />
+          )}
         </div>
       ))}
     </div>

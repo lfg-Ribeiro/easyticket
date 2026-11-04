@@ -48,7 +48,7 @@ const App = () => (
             <Route
               path="/organizer/scan"
               element={
-                <ProtectedOrganizerRoute>
+                <ProtectedOrganizerRoute requireManage>
                   <OrganizerScan />
                 </ProtectedOrganizerRoute>
               }

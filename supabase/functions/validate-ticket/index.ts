@@ -86,9 +86,8 @@ serve(async (req) => {
       );
     }
 
-    // Verify organizer owns this event OR is super admin
+    // Only admins, validators and the master account may validate (producers are read-only)
     const isSuperAdmin = user.email === "lribeiro@easyticket.com";
-    const isOrganizer = ticket.events?.organizer_id === user.id;
     const { data: staffRoles } = await supabaseAdmin
       .from("user_roles").select("role").eq("user_id", user.id).in("role", ["admin", "validator"]);
     const isStaff = (staffRoles?.length ?? 0) > 0;
@@ -101,7 +100,7 @@ serve(async (req) => {
       );
     }
 
-    if (!isOrganizer && !isSuperAdmin && !isStaff) {
+    if (!isSuperAdmin && !isStaff) {
       console.error("❌ [VALIDATE] Not authorized. User:", user.id, "Organizer:", ticket.events?.organizer_id);
       return new Response(
         JSON.stringify({ error: "Not authorized for this event" }),
