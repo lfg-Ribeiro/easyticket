@@ -32,7 +32,7 @@ interface EventStats {
 
 export default function OrganizerDashboard() {
   const navigate = useNavigate();
-  const { user, session, isOrganizer, isAdmin } = useAuth();
+  const { user, session, canManageEvents } = useAuth();
   const [seeding, setSeeding] = useState(false);
   const seedValidators = async () => {
     setSeeding(true);
@@ -94,7 +94,7 @@ export default function OrganizerDashboard() {
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
       let events = allEvents;
-      const seeAll = isAdmin || user?.email === "lribeiro@easyticket.com";
+      const seeAll = canManageEvents;
       if (!seeAll && user) {
         const { data: links } = await supabase.from("event_organizers").select("event_id").eq("user_id", user.id);
         const linked = new Set((links || []).map((l) => l.event_id));
@@ -125,7 +125,7 @@ export default function OrganizerDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [session?.access_token, isAdmin, user]);
+  }, [session?.access_token, canManageEvents, user]);
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
@@ -174,28 +174,28 @@ export default function OrganizerDashboard() {
             </p>
           </div>
           <div className="hidden md:flex gap-3">
-            {(user?.email === "lribeiro@easyticket.com" || isAdmin) && (
-              <Button variant="outline" onClick={() => navigate("/admin/usuarios")}>Gestão de Acessos</Button>
+            {canManageEvents && (
+              <>
+                <Button variant="outline" onClick={() => navigate("/admin/usuarios")}>Gestão de Acessos</Button>
+                <Button variant="outline" disabled={seeding} onClick={seedValidators}>
+                  {seeding ? "Criando..." : "Gerar Validadores"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/organizer/scan")}
+                >
+                  <QrCode className="h-5 w-5 mr-2" />
+                  Scanner
+                </Button>
+                <Button
+                  variant="gradient"
+                  onClick={() => setCreateOpen(true)}
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Criar Evento
+                </Button>
+              </>
             )}
-            {(user?.email === "lribeiro@easyticket.com" || isAdmin) && (
-              <Button variant="outline" disabled={seeding} onClick={seedValidators}>
-                {seeding ? "Criando..." : "Gerar Validadores"}
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              onClick={() => navigate("/organizer/scan")}
-            >
-              <QrCode className="h-5 w-5 mr-2" />
-              Scanner
-            </Button>
-            <Button
-              variant="gradient"
-              onClick={() => setCreateOpen(true)}
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Criar Evento
-            </Button>
           </div>
         </section>
 
@@ -229,6 +229,7 @@ export default function OrganizerDashboard() {
                 <EventListItem
                   key={`${event.id}-${listVersion}`}
                   onEdit={setEditingEventId}
+                  canManage={canManageEvents}
                   event={event}
                   soldCount={eventStats[event.id]?.sold || 0}
                   revenue={eventStats[event.id]?.revenue || 0}
@@ -237,16 +238,21 @@ export default function OrganizerDashboard() {
             </div>
           ) : (
             <div className="text-center py-12 bg-secondary rounded-2xl">
-              <p className="text-muted-foreground mb-3">Nenhum evento criado ainda</p>
-              <Button variant="gradient" onClick={() => setCreateOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Criar Primeiro Evento
-              </Button>
+              <p className="text-muted-foreground mb-3">
+                {canManageEvents ? "Nenhum evento criado ainda" : "Nenhum evento vinculado à sua conta ainda"}
+              </p>
+              {canManageEvents && (
+                <Button variant="gradient" onClick={() => setCreateOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Primeiro Evento
+                </Button>
+              )}
             </div>
           )}
         </section>
 
         {/* Mobile FABs */}
+        {canManageEvents && (
         <div className="fixed bottom-20 right-4 flex flex-col gap-3 md:hidden z-40">
           <Button
             variant="outline"
@@ -265,7 +271,10 @@ export default function OrganizerDashboard() {
             <Plus className="h-6 w-6" />
           </Button>
         </div>
+        )}
 
+        {canManageEvents && (
+          <>
         {/* Create Event Modal */}
         <CreateEventForm
           open={createOpen}
@@ -283,6 +292,8 @@ export default function OrganizerDashboard() {
             fetchDashboardData();
           }}
         />
+          </>
+        )}
       </div>
     </MainLayout>
   );
