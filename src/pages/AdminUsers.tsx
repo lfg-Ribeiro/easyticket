@@ -13,10 +13,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-type Role = "admin" | "organizer" | "validator";
+type Role = "admin" | "organizer" | "validator" | "user";
 interface AdminUser { id: string; email: string; roles: string[]; event_ids: string[] }
 interface Ev { id: string; title: string; event_date: string }
-const ROLE_LABEL: Record<string, string> = { admin: "Admin", organizer: "Produtor", validator: "Validador" };
+const ROLE_LABEL: Record<string, string> = { admin: "Admin", organizer: "Produtor", validator: "Validador", user: "Cliente" };
+const needsEvents = (r: Role) => r === "organizer" || r === "validator";
 
 export default function AdminUsers() {
   const navigate = useNavigate();
@@ -54,14 +55,14 @@ export default function AdminUsers() {
   const openNew = () => { setEditing(null); setEmail(""); setPassword(""); setRole("organizer"); setEventIds([]); setOpen(true); };
   const openEdit = (u: AdminUser) => {
     setEditing(u); setEmail(u.email); setPassword("");
-    setRole((["admin", "organizer", "validator"].find((r) => u.roles.includes(r)) as Role) || "organizer");
+    setRole((["admin", "organizer", "validator"].find((r) => u.roles.includes(r)) as Role) || "user");
     setEventIds(u.event_ids); setOpen(true);
   };
 
   const save = async () => {
     setSaving(true);
     const { data, error } = await supabase.functions.invoke("admin-users", {
-      body: { action: editing ? "update" : "create", user_id: editing?.id, email, password: password || undefined, role, event_ids: role === "admin" ? [] : eventIds },
+      body: { action: editing ? "update" : "create", user_id: editing?.id, email, password: password || undefined, role, event_ids: needsEvents(role) ? eventIds : [] },
     });
     setSaving(false);
     if (error || data?.error) return toast({ title: "Erro ao salvar", description: data?.error || error?.message, variant: "destructive" });
@@ -93,7 +94,7 @@ export default function AdminUsers() {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{u.email}</p>
                   <p className="text-xs text-muted-foreground">
-                    {u.roles.includes("admin") ? "Todos os eventos" : `${u.event_ids.length} evento(s) vinculado(s)`}
+                    {u.roles.includes("admin") ? "Todos os eventos" : u.roles.length ? `${u.event_ids.length} evento(s) vinculado(s)` : "Comprador — sem acesso administrativo"}
                   </p>
                 </div>
                 <div className="flex gap-1">
@@ -126,10 +127,14 @@ export default function AdminUsers() {
                   <SelectItem value="organizer">Produtor</SelectItem>
                   <SelectItem value="validator">Validador</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="user">Cliente / Comprador</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {role !== "admin" && (
+            {role === "user" && (
+              <p className="text-sm text-muted-foreground">Clientes não têm acesso ao painel nem a eventos administrativos — apenas compram e veem os próprios ingressos.</p>
+            )}
+            {needsEvents(role) && (
               <div className="space-y-2">
                 <Label>Eventos permitidos</Label>
                 {events.length === 0 && <p className="text-sm text-muted-foreground">Nenhum evento ativo.</p>}

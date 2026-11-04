@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedOrganizerRoute } from "@/components/organizer/ProtectedOrganizerRoute";
 import Index from "./pages/Index";
@@ -32,6 +32,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/event/:id" element={<EventDetail />} />
             <Route path="/tickets" element={<MyTickets />} />
+            <Route path="/meus-ingressos" element={<Navigate to="/tickets" replace />} />
             <Route path="/purchase-success" element={<PurchaseSuccess />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/auth" element={<Auth />} />
