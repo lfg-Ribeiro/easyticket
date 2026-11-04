@@ -139,16 +139,24 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
           amount: total,
           customer_cpf: formData.cpf,
           customer_name: formData.name,
+          order_id: orderId,
         },
       });
-      if (error) throw error;
+      if (error) {
+        let message = "Erro ao gerar PIX";
+        try {
+          const body = await (error as any).context?.json?.();
+          if (body?.error) message = body.error;
+        } catch { /* keep generic message */ }
+        throw new Error(message);
+      }
       setPixCode(data.pix_code || "");
       setQrCodeImage(data.qr_code_image || null);
       setPixPaymentId(data.payment_id || "");
       setPixGenerated(true);
       countdown.start();
-    } catch {
-      toast({ title: "Erro ao gerar PIX", variant: "destructive" });
+    } catch (err) {
+      toast({ title: err instanceof Error && err.message ? err.message : "Erro ao gerar PIX", variant: "destructive" });
     } finally {
       setIsGeneratingPix(false);
     }
