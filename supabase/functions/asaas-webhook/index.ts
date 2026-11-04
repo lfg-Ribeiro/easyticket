@@ -119,6 +119,39 @@ serve(async (req) => {
       console.log(`✅ [WEBHOOK] Order ${order.id} updated to confirmed`);
     }
 
+    // Recovery: a paid order may have expired (15-min cleanup deletes its tickets
+    // and returns stock). Re-issue the tickets and consume the stock again.
+    const { count: ticketCount } = await supabaseAdmin
+      .from("tickets").select("id", { count: "exact", head: true }).eq("order_id", order.id);
+    if (!ticketCount) {
+      const { data: full } = await supabaseAdmin
+        .from("orders").select("subtotal, buyer_cpf").eq("id", order.id).single();
+      const unitPrice = Number(full?.subtotal || 0) / Math.max(order.quantity, 1);
+      const { data: batches } = await supabaseAdmin
+        .from("ticket_batches").select("id, price, is_active").eq("event_id", order.event_id);
+      const batch = (batches || []).find((b) => Number(b.price) === unitPrice && b.is_active)
+        || (batches || []).find((b) => Number(b.price) === unitPrice);
+      const { data: prof } = await supabaseAdmin
+        .from("profiles").select("auth_id").ilike("email", order.buyer_email).maybeSingle();
+      const rows = Array.from({ length: order.quantity }, (_, i) => ({
+        order_id: order.id,
+        event_id: order.event_id,
+        batch_id: batch?.id ?? null,
+        qr_code: `TICKET-${order.id.slice(0, 8)}-${i + 1}-${Date.now().toString(36)}`.toUpperCase(),
+        holder_name: order.buyer_name,
+        holder_email: order.buyer_email,
+        holder_cpf: full?.buyer_cpf ? String(full.buyer_cpf).replace(/\D/g, "") : null,
+        check_in_status: "valid",
+        user_id: prof?.auth_id ?? null,
+      }));
+      const { error: tErr } = await supabaseAdmin.from("tickets").insert(rows);
+      if (tErr) console.error("❌ [WEBHOOK] Failed to re-issue tickets:", tErr);
+      else {
+        console.log(`🎫 [WEBHOOK] Re-issued ${rows.length} ticket(s) for expired-but-paid order ${order.id}`);
+        if (batch) await supabaseAdmin.rpc("consume_batch_tickets", { p_batch_id: batch.id, p_quantity: order.quantity });
+      }
+    }
+
     // Send confirmation email via Resend
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (resendApiKey) {
