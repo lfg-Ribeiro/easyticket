@@ -22,9 +22,11 @@ interface EventListItemProps {
   soldCount: number;
   revenue: number;
   onEdit?: (eventId: string) => void;
+  /** When false, the card is read-only: no edit button and no lot switches. */
+  canManage?: boolean;
 }
 
-export function EventListItem({ event, soldCount, revenue, onEdit }: EventListItemProps) {
+export function EventListItem({ event, soldCount, revenue, onEdit, canManage = false }: EventListItemProps) {
   const navigate = useNavigate();
 
   const formattedRevenue = new Intl.NumberFormat("pt-BR", {

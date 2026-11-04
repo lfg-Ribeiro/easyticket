@@ -5,31 +5,37 @@ import { toast } from "@/hooks/use-toast";
 
 interface ProtectedOrganizerRouteProps {
   children: React.ReactNode;
+  /** Require full management rights (admin / master), not just read-only producer access. */
+  requireManage?: boolean;
 }
 
-export function ProtectedOrganizerRoute({ children }: ProtectedOrganizerRouteProps) {
-  const { user, loading, canAccessOrganizer } = useAuth();
+export function ProtectedOrganizerRoute({ children, requireManage = false }: ProtectedOrganizerRouteProps) {
+  const { user, loading, rolesLoaded, canAccessOrganizer, canManageEvents } = useAuth();
   const navigate = useNavigate();
+  const waiting = loading || (!!user && !rolesLoaded);
+  const allowed = requireManage ? canManageEvents : canAccessOrganizer;
 
   useEffect(() => {
-    if (loading) return;
+    if (waiting) return;
 
     if (!user) {
       navigate("/auth", { replace: true });
       return;
     }
 
-    if (!canAccessOrganizer) {
+    if (!allowed) {
       toast({
         title: "Acesso Negado",
-        description: "Você não tem permissão para acessar o painel do organizador.",
+        description: requireManage
+          ? "Somente administradores podem acessar esta área."
+          : "Você não tem permissão para acessar o painel do organizador.",
         variant: "destructive",
       });
-      navigate("/", { replace: true });
+      navigate(requireManage && canAccessOrganizer ? "/organizer" : "/", { replace: true });
     }
-  }, [user, loading, canAccessOrganizer, navigate]);
+  }, [user, waiting, allowed, requireManage, canAccessOrganizer, navigate]);
 
-  if (loading) {
+  if (waiting) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -37,7 +43,7 @@ export function ProtectedOrganizerRoute({ children }: ProtectedOrganizerRoutePro
     );
   }
 
-  if (!user || !canAccessOrganizer) return null;
+  if (!user || !allowed) return null;
 
   return <>{children}</>;
 }
