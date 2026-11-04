@@ -9,6 +9,7 @@ const corsHeaders = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 const ROLES = ["admin", "organizer", "validator"];
+const ASSIGNABLE = [...ROLES, "user"];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -58,7 +59,7 @@ serve(async (req) => {
 
     if (action === "create" || action === "update") {
       const { email, password, role, event_ids = [] } = body;
-      if (!ROLES.includes(role)) return json({ error: "Cargo inválido" }, 400);
+      if (!ASSIGNABLE.includes(role)) return json({ error: "Cargo inválido" }, 400);
       let userId = body.user_id as string | undefined;
       if (action === "create") {
         if (!email || !password || password.length < 6) return json({ error: "E-mail e senha (mín. 6) obrigatórios" }, 400);
@@ -74,13 +75,37 @@ serve(async (req) => {
         }
       }
       if (userId === user.id && role !== "admin") return json({ error: "Você não pode remover seu próprio cargo de admin" }, 400);
+      // Staff roles are exclusive; every account keeps the base "user" (Cliente) role.
       await admin.from("user_roles").delete().eq("user_id", userId).in("role", ROLES);
-      await admin.from("user_roles").insert({ user_id: userId, role });
+      const { data: hasUser } = await admin.from("user_roles").select("id").eq("user_id", userId).eq("role", "user").maybeSingle();
+      if (!hasUser) await admin.from("user_roles").insert({ user_id: userId, role: "user" });
+      if (role !== "user") await admin.from("user_roles").insert({ user_id: userId, role });
       await admin.from("event_organizers").delete().eq("user_id", userId);
-      if (event_ids.length) {
+      if (role !== "user" && role !== "admin" && event_ids.length) {
         await admin.from("event_organizers").insert(event_ids.map((id: string) => ({ user_id: userId, event_id: id })));
       }
       return json({ success: true, user_id: userId });
+    }
+
+    if (action === "asaas_payments") {
+      // Support lookup: list Asaas payments for the CPFs used by a buyer e-mail.
+      const email = String(body.email || "").trim().toLowerCase();
+      if (!email) return json({ error: "email obrigatório" }, 400);
+      const key = Deno.env.get("ASAAS_API_KEY");
+      if (!key) return json({ error: "Asaas não configurado" }, 400);
+      const base = Deno.env.get("ASAAS_PRODUCTION") === "true" ? "https://api.asaas.com/v3" : "https://sandbox.asaas.com/api/v3";
+      const { data: orders } = await admin.from("orders").select("id, buyer_cpf, total_amount, payment_status, transaction_id, created_at").ilike("buyer_email", email);
+      const { data: prof } = await admin.from("profiles").select("cpf").ilike("email", email).maybeSingle();
+      const cpfs = [...new Set([...(orders || []).map((o) => o.buyer_cpf), prof?.cpf].filter(Boolean).map((c) => String(c).replace(/\D/g, "")))];
+      const payments: any[] = [];
+      for (const cpf of cpfs) {
+        const cr = await fetch(`${base}/customers?cpfCnpj=${cpf}`, { headers: { access_token: key } }).then((r) => r.json());
+        for (const c of cr.data || []) {
+          const pr = await fetch(`${base}/payments?customer=${c.id}&limit=100`, { headers: { access_token: key } }).then((r) => r.json());
+          for (const p of pr.data || []) payments.push({ id: p.id, value: p.value, status: p.status, billingType: p.billingType, externalReference: p.externalReference, dateCreated: p.dateCreated, paymentDate: p.paymentDate || p.clientPaymentDate });
+        }
+      }
+      return json({ orders: orders || [], payments });
     }
 
     return json({ error: "Ação inválida" }, 400);
