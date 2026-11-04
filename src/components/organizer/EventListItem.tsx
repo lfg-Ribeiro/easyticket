@@ -60,18 +60,20 @@ export function EventListItem({ event, soldCount, revenue, onEdit, canManage = f
             )}
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onEdit?.(event.id)}
-              aria-label={`Editar ${event.title}`}
-            >
-              <Pencil className="h-4 w-4 text-muted-foreground" />
-            </Button>
+            {canManage && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onEdit?.(event.id)}
+                aria-label={`Editar ${event.title}`}
+              >
+                <Pencil className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="p-1 hover:bg-secondary rounded-lg transition-colors">
+                <button className="p-1 hover:bg-secondary rounded-lg transition-colors" aria-label="Mais opções">
                   <MoreVertical className="h-5 w-5 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
@@ -80,10 +82,12 @@ export function EventListItem({ event, soldCount, revenue, onEdit, canManage = f
                   <Eye className="h-4 w-4 mr-2" />
                   Visualizar
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onEdit?.(event.id)}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Editar
-                </DropdownMenuItem>
+                {canManage && (
+                  <DropdownMenuItem onClick={() => onEdit?.(event.id)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={handleCopyLink}>
                   <Copy className="h-4 w-4 mr-2" />
                   Copiar Link
@@ -101,7 +105,7 @@ export function EventListItem({ event, soldCount, revenue, onEdit, canManage = f
           </span>
           <span className="font-semibold text-primary">{formattedRevenue}</span>
         </div>
-        <BatchManager eventId={event.id} />
+        <BatchManager eventId={event.id} readOnly={!canManage} />
 
       </div>
     </div>
