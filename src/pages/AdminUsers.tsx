@@ -74,6 +74,13 @@ export default function AdminUsers() {
   if (!allowed) return null;
   const filtered = users.filter((u) => u.email?.toLowerCase().includes(search.toLowerCase()));
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const activeOrFutureEvents = events.filter((ev) => {
+    const eventDate = new Date(ev.event_date);
+    return eventDate >= today;
+  });
+
   return (
     <MainLayout>
       <div className="container py-6 space-y-6">
@@ -136,9 +143,9 @@ export default function AdminUsers() {
             )}
             {needsEvents(role) && (
               <div className="space-y-2">
-                <Label>Eventos permitidos</Label>
-                {events.length === 0 && <p className="text-sm text-muted-foreground">Nenhum evento ativo.</p>}
-                {events.map((ev) => (
+                <Label>Eventos permitidos (Ativos / Futuros)</Label>
+                {activeOrFutureEvents.length === 0 && <p className="text-sm text-muted-foreground">Nenhum evento ativo ou futuro disponível.</p>}
+                {activeOrFutureEvents.map((ev) => (
                   <label key={ev.id} className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer">
                     <Checkbox
                       checked={eventIds.includes(ev.id)}
