@@ -62,7 +62,6 @@ export default function OrganizerDashboard() {
 
     setLoading(true);
     try {
-      // Fetch metrics from edge function (bypasses RLS via service role)
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-dashboard-metrics`,
         {
@@ -75,19 +74,14 @@ export default function OrganizerDashboard() {
       );
 
       const metrics = await res.json();
-      console.log("Dashboard metrics response:", metrics);
-
       if (res.ok) {
         setTotalSales(metrics.total_revenue || 0);
         setTotalFees(metrics.total_fees || 0);
         setTicketsSold(metrics.total_tickets || 0);
         setCheckIns(metrics.total_checkins || 0);
         setTotalEvents(metrics.total_events || 0);
-      } else {
-        console.error("Dashboard metrics error:", metrics);
       }
 
-      // Fetch events list (for display)
       const { data: allEvents } = await supabase
         .from("events")
         .select("*")
@@ -103,7 +97,6 @@ export default function OrganizerDashboard() {
 
       setMyEvents((events as DBEvent[]) || []);
 
-      // Fetch per-event stats (sold count + organizer revenue from confirmed orders, subtotal only)
       if (events && events.length > 0) {
         const { data: orders } = await supabase
           .from("orders")
@@ -126,11 +119,10 @@ export default function OrganizerDashboard() {
       setLoading(false);
     }
   }, [session?.access_token, canManageEvents, user]);
+
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
-
-  // Removed auto-assign organizer role - now managed by RBAC
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -150,7 +142,6 @@ export default function OrganizerDashboard() {
     { label: "Meus Eventos", value: String(totalEvents), icon: Eye, trend: "" },
   ];
 
-  // Map DB events to the EventListItem format
   const eventListItems = myEvents.map((e) => ({
     id: e.id,
     title: e.title,
@@ -211,9 +202,9 @@ export default function OrganizerDashboard() {
           <SalesChart />
         </section>
 
-        {/* Participants Table */}
+        {/* Participants Table (Com eventos passados como props para o filtro) */}
         <section>
-          <ParticipantsTable />
+          <ParticipantsTable events={myEvents} />
         </section>
 
         {/* My Events */}
@@ -275,23 +266,21 @@ export default function OrganizerDashboard() {
 
         {canManageEvents && (
           <>
-        {/* Create Event Modal */}
-        <CreateEventForm
-          open={createOpen}
-          onOpenChange={setCreateOpen}
-          onEventCreated={fetchDashboardData}
-        />
+            <CreateEventForm
+              open={createOpen}
+              onOpenChange={setCreateOpen}
+              onEventCreated={fetchDashboardData}
+            />
 
-        {/* Edit Event Modal */}
-        <EditEventForm
-          eventId={editingEventId}
-          open={!!editingEventId}
-          onOpenChange={(open) => !open && setEditingEventId(null)}
-          onSaved={() => {
-            setListVersion((v) => v + 1);
-            fetchDashboardData();
-          }}
-        />
+            <EditEventForm
+              eventId={editingEventId}
+              open={!!editingEventId}
+              onOpenChange={(open) => !open && setEditingEventId(null)}
+              onSaved={() => {
+                setListVersion((v) => v + 1);
+                fetchDashboardData();
+              }}
+            />
           </>
         )}
       </div>
