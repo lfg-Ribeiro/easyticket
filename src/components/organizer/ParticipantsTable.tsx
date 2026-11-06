@@ -28,36 +28,40 @@ export function ParticipantsTable({ events = [] }: ParticipantsTableProps) {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    async function fetchParticipants() {
+    async function fetchParticipantsData() {
       setLoading(true);
       try {
-        // Busca ingressos e pedidos associados
-        const { data, error } = await supabase
-          .from("tickets")
-          .select(`
-            id,
-            status,
-            created_at,
-            holder_email,
-            holder_name,
-            events (id, title),
-            ticket_batches (name)
-          `)
-          .order("created_at", { ascending: false });
+        // Busca tickets, eventos e lotes separadamente para garantir estabilidade total
+        const [ticketsRes, eventsRes, batchesRes] = await Promise.all([
+          supabase.from("tickets").select("*").order("created_at", { ascending: false }),
+          supabase.from("events").select("id, title"),
+          supabase.from("ticket_batches").select("id, name")
+        ]);
 
-        if (!error && data) {
-          const formatted: Participant[] = data.map((t: any) => ({
+        const tickets = ticketsRes.data || [];
+        const eventsList = eventsRes.data || [];
+        const batchesList = batchesRes.data || [];
+
+        const eventMap = new Map(eventsList.map((e) => [e.id, e.title]));
+        const batchMap = new Map(batchesList.map((b) => [b.id, b.name]));
+
+        const formatted: Participant[] = tickets.map((t: any) => {
+          const evId = t.event_id;
+          const batchId = t.batch_id || t.ticket_batch_id;
+          
+          return {
             id: t.id,
             name: t.holder_name || t.holder_email || "Convidado",
             email: t.holder_email || "N/A",
-            event_title: t.events?.title || "Evento",
-            event_id: t.events?.id || "",
-            ticket_type: t.ticket_batches?.name || "Ingresso",
+            event_title: evId ? (eventMap.get(evId) || "Evento") : "Evento",
+            event_id: evId || "",
+            ticket_type: batchId ? (batchMap.get(batchId) || "Ingresso") : "Ingresso",
             status: t.status === "used" ? "Utilizado" : "Confirmado",
             date: new Date(t.created_at).toLocaleDateString("pt-BR"),
-          }));
-          setParticipants(formatted);
-        }
+          };
+        });
+
+        setParticipants(formatted);
       } catch (err) {
         console.error("Erro ao carregar participantes:", err);
       } finally {
@@ -65,7 +69,7 @@ export function ParticipantsTable({ events = [] }: ParticipantsTableProps) {
       }
     }
 
-    fetchParticipants();
+    fetchParticipantsData();
   }, []);
 
   // Filtragem por busca (nome/e-mail) e evento selecionado
