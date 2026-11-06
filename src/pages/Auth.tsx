@@ -203,9 +203,6 @@ export default function Auth() {
             <Ticket className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">EasyTicket</h1>
-          <p className="text-muted-foreground text-sm">
-            {mode === "login" ? "Acesse sua conta de organizador" : "Crie sua conta de organizador"}
-          </p>
         </div>
 
         {/* Form */}
@@ -249,22 +246,22 @@ export default function Auth() {
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password" className="text-sm font-medium">Senha</Label>
-              {mode === "login" && (
-                <button
-                  type="button"
-                  onClick={() => setMode("forgot")}
-                  className="text-xs text-primary hover:text-primary/80 transition-colors"
-                >
-                  Esqueci minha senha
-                </button>
-              )}
-            </div>
+            <Label htmlFor="password" className="text-sm font-medium">Senha</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="pl-10" />
             </div>
+            {mode === "login" && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setMode("forgot")}
+                  className="rounded-sm text-xs text-primary hover:text-primary/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  Esqueci minha senha
+                </button>
+              </div>
+            )}
           </div>
 
           <Button type="submit" variant="gradient" size="lg" className="w-full" disabled={submitting}>
