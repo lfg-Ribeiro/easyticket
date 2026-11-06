@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useMemo } from "react";
+import { ThemeToggle } from "@/components/ThemeToggle"; // 1. Importe o ThemeToggle
 
 export function Header() {
   const location = useLocation();
@@ -58,6 +59,8 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <ThemeToggle /> {/* 2. Adicione o botão de tema aqui */}
+
           {user ? (
             <>
               <Link to="/profile">
