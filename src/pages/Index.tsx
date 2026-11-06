@@ -5,6 +5,7 @@ import { EventCard } from "@/components/events/EventCard";
 import { CategoryFilter } from "@/components/events/CategoryFilter";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { Testimonials } from "@/components/home/Testimonials";
 import type { Event } from "@/types/event";
 
 const Index = () => {
@@ -152,6 +153,8 @@ const Index = () => {
             </div>
           )}
         </section>
+
+          <Testimonials />
       </div>
     </MainLayout>
   );
