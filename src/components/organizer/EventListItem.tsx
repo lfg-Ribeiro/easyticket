@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
+import { formatEventDate } from "@/lib/utils";
 
 interface EventListItemProps {
   event: {
@@ -97,7 +98,7 @@ export function EventListItem({ event, soldCount, revenue, onEdit, canManage = f
           </div>
         </div>
         <p className="text-sm text-muted-foreground mb-2">
-          {new Date(event.date).toLocaleDateString("pt-BR")} • {event.time}
+          {formatEventDate(event.date)} • {event.time}
         </p>
         <div className="flex items-center gap-4 text-sm">
           <span className="text-muted-foreground">

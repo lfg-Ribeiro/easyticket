@@ -1,6 +1,6 @@
 import { QRCodeSVG } from "qrcode.react";
 import { Calendar, MapPin, Clock, Scissors } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatEventDate } from "@/lib/utils";
 
 interface PremiumTicketCardProps {
   eventTitle: string;
@@ -33,7 +33,7 @@ export function PremiumTicketCard({
   status,
   className,
 }: PremiumTicketCardProps) {
-  const formattedDate = new Date(eventDate).toLocaleDateString("pt-BR", {
+  const formattedDate = formatEventDate(eventDate, {
     weekday: "long",
     day: "numeric",
     month: "long",

@@ -1,6 +1,6 @@
 import { QrCode, Calendar, MapPin, Clock, Scissors, ChevronRight } from "lucide-react";
 import { Ticket } from "@/types/event";
-import { cn } from "@/lib/utils";
+import { cn, formatEventDate } from "@/lib/utils";
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -8,7 +8,7 @@ interface TicketCardProps {
 }
 
 export function TicketCard({ ticket, className }: TicketCardProps) {
-  const formattedDate = new Date(ticket.event.date).toLocaleDateString("pt-BR", {
+  const formattedDate = formatEventDate(ticket.event.date, {
     weekday: "short",
     day: "numeric",
     month: "short",

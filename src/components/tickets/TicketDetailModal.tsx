@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { cn, formatEventDate } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { Ticket } from "@/types/event";
@@ -31,7 +31,7 @@ export function TicketDetailModal({ ticket, open, onOpenChange, onTransferred }:
   };
   const status = statusConfig[ticket.status];
 
-  const formattedDate = new Date(ticket.event.date).toLocaleDateString("pt-BR", {
+  const formattedDate = formatEventDate(ticket.event.date, {
     weekday: "long",
     day: "numeric",
     month: "long",
