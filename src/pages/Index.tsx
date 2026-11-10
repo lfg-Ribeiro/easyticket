@@ -31,6 +31,7 @@ const Index = () => {
           cover_image_url,
           category,
           fee_absorbed,
+          show_remaining_tickets,
           ticket_batches (name, price, available_quantity, status, is_active, sort_order)
         `)
         .eq("published", true)
@@ -64,6 +65,7 @@ const Index = () => {
             availableTickets: totalAvailable,
             organizer: "",
             activeBatchName: activeBatch?.name,
+            showRemainingTickets: !!e.show_remaining_tickets,
           };
         });
         setEvents(mapped);
