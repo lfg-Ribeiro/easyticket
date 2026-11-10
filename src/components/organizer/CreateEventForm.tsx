@@ -57,6 +57,7 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [feeAbsorbed, setFeeAbsorbed] = useState(false);
+  const [showRemaining, setShowRemaining] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
@@ -108,6 +109,7 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
   const resetForm = () => {
     setCurrentStep(1);
     setFeeAbsorbed(false);
+    setShowRemaining(false);
     setCoverFile(null);
     setCoverPreview(null);
     setBatches([{ id: "1", name: "Lote 1", price: "", quantity: "" }]);
@@ -165,6 +167,7 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
           category: formData.category,
           cover_image_url: coverImageUrl,
           fee_absorbed: feeAbsorbed,
+          show_remaining_tickets: showRemaining,
           published: true,
         })
         .select()
@@ -507,6 +510,18 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
                   </p>
                 </div>
                 <Switch checked={feeAbsorbed} onCheckedChange={setFeeAbsorbed} />
+              </div>
+
+              <div className="h-px bg-border" />
+
+              <div className="flex items-center justify-between">
+                <div className="flex-1 pr-4">
+                  <p className="font-semibold text-foreground text-sm">Exibir quantidade de ingressos restantes</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Ative para gerar escassez no público quando o lote estiver perto do fim
+                  </p>
+                </div>
+                <Switch checked={showRemaining} onCheckedChange={setShowRemaining} />
               </div>
             </div>
 

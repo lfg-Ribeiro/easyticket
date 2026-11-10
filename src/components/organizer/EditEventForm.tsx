@@ -83,6 +83,7 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
     category: "",
     published: true,
     fee_absorbed: false,
+    show_remaining_tickets: false,
     cover_image_url: "" as string | null,
     organizer_id: "",
   });
@@ -120,6 +121,7 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
       category: ev.category ?? "Outros",
       published: !!ev.published,
       fee_absorbed: !!ev.fee_absorbed,
+      show_remaining_tickets: !!ev.show_remaining_tickets,
       cover_image_url: ev.cover_image_url,
       organizer_id: ev.organizer_id,
     });
@@ -225,6 +227,7 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
           category: form.category,
           published: form.published,
           fee_absorbed: form.fee_absorbed,
+          show_remaining_tickets: form.show_remaining_tickets,
           cover_image_url: coverImageUrl,
         })
         .eq("id", eventId);
@@ -473,6 +476,18 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
                   checked={form.fee_absorbed}
                   onCheckedChange={(v) => setField("fee_absorbed", v)}
                   aria-label="Absorver taxa de serviço"
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl bg-secondary/60 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Exibir quantidade de ingressos restantes</p>
+                  <p className="text-xs text-muted-foreground">Ative para gerar escassez no público quando o lote estiver perto do fim</p>
+                </div>
+                <Switch
+                  checked={form.show_remaining_tickets}
+                  onCheckedChange={(v) => setField("show_remaining_tickets", v)}
+                  aria-label="Exibir quantidade de ingressos restantes"
                 />
               </div>
 
