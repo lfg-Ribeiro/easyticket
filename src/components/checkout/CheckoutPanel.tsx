@@ -316,7 +316,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       {event.activeBatchName && (
         <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
           <p className="text-sm font-semibold text-primary">
-            {event.activeBatchName} — Restam {event.availableTickets} ingresso{event.availableTickets !== 1 ? 's' : ''}
+            {event.activeBatchName}{event.showRemainingTickets ? ` — Restam ${event.availableTickets} ingresso${event.availableTickets !== 1 ? 's' : ''}` : " — Disponível"}
           </p>
         </div>
       )}

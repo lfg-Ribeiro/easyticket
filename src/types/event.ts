@@ -13,6 +13,7 @@ export interface Event {
   organizer: string;
   activeBatchId?: string;
   activeBatchName?: string;
+  showRemainingTickets?: boolean;
 }
 
 export interface Ticket {
