@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useCountdown } from "@/hooks/useCountdown";
 import type { Event } from "@/types/event";
+import { isPaymentConfirmed } from "@/lib/payment-status";
 
 interface CheckoutDrawerProps {
   event: Event;
@@ -197,7 +198,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
         body: { payment_id: pixPaymentId, order_id: pixOrderId },
       });
       if (error) throw error;
-      if (data?.status === "confirmed") {
+      if (isPaymentConfirmed(data)) {
         toast({ title: "Pagamento confirmado! 🎉" });
         navigateToSuccess(pixTransactionId, pixOrderId, pixPaymentId);
       } else {
@@ -263,7 +264,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
       });
 
       if (error) throw error;
-      if (data?.confirmed || data?.status === "CONFIRMED" || data?.status === "RECEIVED") {
+      if (isPaymentConfirmed(data)) {
         toast({ title: "Pagamento aprovado! 🎉" });
         navigateToSuccess(txnId, orderId);
       } else {
