@@ -7,6 +7,7 @@ import { WalletButton } from "@/components/tickets/WalletButton";
 import { OfflineTip } from "@/components/tickets/OfflineTip";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { isPaymentConfirmed } from "@/lib/payment-status";
 
 export default function PurchaseSuccess() {
   const [searchParams] = useSearchParams();
@@ -89,7 +90,7 @@ export default function PurchaseSuccess() {
           return;
         }
         console.log("📊 Payment status response:", data);
-        if (data?.status === "confirmed" || data?.asaas_status === "RECEIVED" || data?.asaas_status === "CONFIRMED") {
+        if (isPaymentConfirmed(data)) {
           setPaymentStatus("confirmed");
           if (pollingRef.current) clearInterval(pollingRef.current);
         }
