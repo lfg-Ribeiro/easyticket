@@ -1,17 +1,35 @@
 import React from "react";
+import { useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 const PHONE_NUMBER = "5545920025315";
 const MESSAGE = "Olá! Preciso de ajuda com a plataforma EasyTicket.";
 const WHATSAPP_URL = `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(MESSAGE)}`;
 
+const ABOVE_MOBILE_NAV = "bottom-[calc(4rem+max(1rem,env(safe-area-inset-bottom))+0.75rem)]";
+
 export const FloatingWhatsApp: React.FC = () => {
+  const { pathname } = useLocation();
+  const isEventPage = pathname.startsWith("/event/");
+  const isOrganizerPage = pathname.startsWith("/organizer");
+
   return (
     <a
       href={WHATSAPP_URL}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Suporte via WhatsApp"
-      className="group fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg shadow-black/25 ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-0.5 hover:scale-110 hover:bg-[#1ebe5b] hover:shadow-xl hover:shadow-[#25D366]/40 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#25D366]/50 active:scale-95"
+      className={cn(
+        "group fixed z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg shadow-black/25 ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-0.5 hover:scale-110 hover:bg-[#1ebe5b] hover:shadow-xl hover:shadow-[#25D366]/40 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#25D366]/50 active:scale-95",
+        // Desktop: posição normal
+        "md:bottom-6 md:right-6 md:left-auto",
+        // Mobile: sempre acima da MobileNav; em páginas com barra/FABs próprios, sai do caminho
+        isEventPage
+          ? "bottom-40 right-4"
+          : isOrganizerPage
+            ? `${ABOVE_MOBILE_NAV} left-4`
+            : `${ABOVE_MOBILE_NAV} right-4`
+      )}
     >
       <span
         aria-hidden="true"
