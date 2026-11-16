@@ -58,6 +58,7 @@ export type Database = {
           location: string
           organizer_id: string
           published: boolean
+          show_remaining_tickets: boolean
           title: string
           updated_at: string
           venue: string
@@ -76,6 +77,7 @@ export type Database = {
           location: string
           organizer_id: string
           published?: boolean
+          show_remaining_tickets?: boolean
           title: string
           updated_at?: string
           venue: string
@@ -94,6 +96,7 @@ export type Database = {
           location?: string
           organizer_id?: string
           published?: boolean
+          show_remaining_tickets?: boolean
           title?: string
           updated_at?: string
           venue?: string

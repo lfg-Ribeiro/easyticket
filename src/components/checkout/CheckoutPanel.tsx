@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useCountdown } from "@/hooks/useCountdown";
 import type { Event } from "@/types/event";
+import { isPaymentConfirmed } from "@/lib/payment-status";
 
 interface CheckoutPanelProps {
   event: Event;
@@ -191,7 +192,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
         body: { payment_id: pixPaymentId, order_id: pixOrderId },
       });
       if (error) throw error;
-      if (data?.status === "confirmed") {
+      if (isPaymentConfirmed(data)) {
         toast({ title: "Pagamento confirmado! 🎉" });
         navigateToSuccess(pixTransactionId, pixOrderId, pixPaymentId, pixTicketQrCode);
       } else {
@@ -265,7 +266,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
         return;
       }
       if (error) throw error;
-      if (data?.confirmed || data?.status === "CONFIRMED" || data?.status === "RECEIVED") {
+      if (isPaymentConfirmed(data)) {
         toast({ title: "Pagamento aprovado! 🎉" });
         // Card checkout: tickets were already created by create-checkout, fetch qr_code
         const { data: ticketData } = await supabase
@@ -316,7 +317,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       {event.activeBatchName && (
         <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
           <p className="text-sm font-semibold text-primary">
-            {event.activeBatchName} — Restam {event.availableTickets} ingresso{event.availableTickets !== 1 ? 's' : ''}
+            {event.activeBatchName}{event.showRemainingTickets ? ` — Restam ${event.availableTickets} ingresso${event.availableTickets !== 1 ? 's' : ''}` : " — Disponível"}
           </p>
         </div>
       )}

@@ -32,7 +32,7 @@ export default function EventDetail() {
         .from("events")
         .select(`
           id, title, description, event_date, event_time,
-          location, venue, cover_image_url, category, fee_absorbed,
+          location, venue, cover_image_url, category, fee_absorbed, show_remaining_tickets,
           ticket_batches (id, name, price, available_quantity, status, is_active, sort_order)
         `)
         .eq("id", id)
@@ -65,6 +65,7 @@ export default function EventDetail() {
           organizer: "",
           activeBatchId: activeBatch?.id,
           activeBatchName: activeBatch?.name,
+          showRemainingTickets: !!data.show_remaining_tickets,
         });
       }
       setLoading(false);
@@ -160,13 +161,13 @@ export default function EventDetail() {
                 </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Users className="h-4 w-4 flex-shrink-0 text-primary/70" />
-                  <span>{event.availableTickets.toLocaleString()} ingressos disponíveis</span>
+                  <span>{event.showRemainingTickets ? `${event.availableTickets.toLocaleString()} ingressos disponíveis` : "Ingressos disponíveis"}</span>
                 </div>
               </div>
               {event.activeBatchName && (
                 <div className="mb-6 p-3 rounded-xl bg-primary/10 border border-primary/20">
                   <p className="text-sm font-semibold text-primary">
-                    {event.activeBatchName} — Restam {event.availableTickets} ingresso{event.availableTickets !== 1 ? 's' : ''}
+                    {event.activeBatchName}{event.showRemainingTickets ? ` — Restam ${event.availableTickets} ingresso${event.availableTickets !== 1 ? 's' : ''}` : " — Disponível"}
                   </p>
                 </div>
               )}
@@ -209,13 +210,13 @@ export default function EventDetail() {
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Users className="h-4 w-4 flex-shrink-0 text-primary/70" />
-                <span>{event.availableTickets.toLocaleString()} ingressos disponíveis</span>
+                <span>{event.showRemainingTickets ? `${event.availableTickets.toLocaleString()} ingressos disponíveis` : "Ingressos disponíveis"}</span>
               </div>
             </div>
             {event.activeBatchName && (
               <div className="mb-6 p-3 rounded-xl bg-primary/10 border border-primary/20">
                 <p className="text-sm font-semibold text-primary">
-                  {event.activeBatchName} — Restam {event.availableTickets} ingresso{event.availableTickets !== 1 ? 's' : ''}
+                  {event.activeBatchName}{event.showRemainingTickets ? ` — Restam ${event.availableTickets} ingresso${event.availableTickets !== 1 ? 's' : ''}` : " — Disponível"}
                 </p>
               </div>
             )}

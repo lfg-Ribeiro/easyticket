@@ -1,0 +1,2 @@
+ALTER TABLE public.events ADD COLUMN show_remaining_tickets boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.events.show_remaining_tickets IS 'When true, public pages show the remaining ticket count for the active batch (scarcity trigger).';

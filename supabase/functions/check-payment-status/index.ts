@@ -52,10 +52,12 @@ serve(async (req) => {
     }
 
     const paymentData = await asaasRes.json();
-    const asaasStatus = paymentData.status; // PENDING, RECEIVED, CONFIRMED, OVERDUE, etc.
+    const asaasStatus = paymentData.status; // PENDING, RECEIVED, RECEIVED_IN_CASH, CONFIRMED, OVERDUE, etc.
     console.log(`💳 Asaas payment ${payment_id} status: ${asaasStatus}`);
 
-    const isConfirmed = asaasStatus === "RECEIVED" || asaasStatus === "CONFIRMED";
+    // RECEIVED_IN_CASH = cobrança baixada manualmente no painel do Asaas
+    const PAID_STATUSES = ["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"];
+    const isConfirmed = PAID_STATUSES.includes(asaasStatus);
 
     // If confirmed and we have an order_id, update the order and send email
     if (isConfirmed && order_id) {
