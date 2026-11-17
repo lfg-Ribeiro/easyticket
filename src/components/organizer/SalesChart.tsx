@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
+import { SalesChartSkeleton } from "@/components/organizer/OrganizerSkeletons";
 
 type Period = "7d" | "24h";
 
@@ -49,7 +50,9 @@ export function SalesChart() {
             const d = new Date(startDate);
             d.setDate(d.getDate() + i);
             const dateStr = d.toISOString().split("T")[0];
-            const match = (rows as any[])?.find((r: any) => r.sale_date === dateStr);
+            const match = (rows as any[])?.find(
+              (r: any) => r.sale_date === dateStr,
+            );
             mapped.push({
               label: dayNames[d.getDay()],
               vendas: match ? Number(match.tickets_sold) : 0,
@@ -71,17 +74,33 @@ export function SalesChart() {
           console.error("SalesChart 24h error:", error);
           setData([]);
         } else {
-          const hourLabels = ["00h", "03h", "06h", "09h", "12h", "15h", "18h", "21h"];
+          const hourLabels = [
+            "00h",
+            "03h",
+            "06h",
+            "09h",
+            "12h",
+            "15h",
+            "18h",
+            "21h",
+          ];
           const mapped: ChartDataPoint[] = hourLabels.map((label) => {
             const hour = parseInt(label);
             // Aggregate 3-hour blocks
-            const block = (rows as any[])?.filter(
-              (r: any) => r.sale_hour >= hour && r.sale_hour < hour + 3
-            ) || [];
+            const block =
+              (rows as any[])?.filter(
+                (r: any) => r.sale_hour >= hour && r.sale_hour < hour + 3,
+              ) || [];
             return {
               label,
-              vendas: block.reduce((s: number, r: any) => s + Number(r.tickets_sold), 0),
-              receita: block.reduce((s: number, r: any) => s + Number(r.revenue), 0),
+              vendas: block.reduce(
+                (s: number, r: any) => s + Number(r.tickets_sold),
+                0,
+              ),
+              receita: block.reduce(
+                (s: number, r: any) => s + Number(r.revenue),
+                0,
+              ),
             };
           });
           setData(mapped);
@@ -96,7 +115,9 @@ export function SalesChart() {
   return (
     <div className="bg-card rounded-2xl shadow-card p-5 md:p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-bold text-foreground">Performance de Vendas</h2>
+        <h2 className="text-lg font-bold text-foreground">
+          Performance de Vendas
+        </h2>
         <div className="flex gap-1 bg-secondary rounded-lg p-1">
           <button
             onClick={() => setPeriod("24h")}
@@ -123,12 +144,13 @@ export function SalesChart() {
 
       <div className="h-64 md:h-72">
         {loading ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Carregando...
-          </div>
+          <SalesChartSkeleton />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+            <LineChart
+              data={data}
+              margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
+            >
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
@@ -181,7 +203,12 @@ export function SalesChart() {
                 stroke="hsl(var(--primary))"
                 strokeWidth={2.5}
                 dot={{ r: 4, fill: "hsl(var(--primary))", strokeWidth: 0 }}
-                activeDot={{ r: 6, fill: "hsl(var(--primary))", strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                activeDot={{
+                  r: 6,
+                  fill: "hsl(var(--primary))",
+                  strokeWidth: 2,
+                  stroke: "hsl(var(--card))",
+                }}
               />
               <Line
                 type="monotone"

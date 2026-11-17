@@ -1,12 +1,20 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, Clock, MapPin, Users, Share2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  MapPin,
+  Users,
+  Share2,
+} from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { CheckoutDrawer } from "@/components/checkout/CheckoutDrawer";
 import { CheckoutPanel } from "@/components/checkout/CheckoutPanel";
 import { supabase } from "@/integrations/supabase/client";
 import type { Event } from "@/types/event";
+import { EventDetailSkeleton } from "@/components/events/EventDetailSkeleton";
 
 export default function EventDetail() {
   const { id } = useParams();
@@ -19,7 +27,8 @@ export default function EventDetail() {
     // Run cleanup of expired pending orders on page load
     supabase.rpc("cleanup_expired_orders").then(({ data }) => {
       const result = data as any;
-      if (result?.expired_count > 0) console.log(`[Cleanup] Expired ${result.expired_count} pending orders`);
+      if (result?.expired_count > 0)
+        console.log(`[Cleanup] Expired ${result.expired_count} pending orders`);
     });
   }, []);
 
@@ -30,11 +39,13 @@ export default function EventDetail() {
 
       const { data } = await supabase
         .from("events")
-        .select(`
+        .select(
+          `
           id, title, description, event_date, event_time,
           location, venue, cover_image_url, category, fee_absorbed, show_remaining_tickets,
           ticket_batches (id, name, price, available_quantity, status, is_active, sort_order)
-        `)
+        `,
+        )
         .eq("id", id)
         .is("deleted_at", null)
         .maybeSingle();
@@ -47,8 +58,13 @@ export default function EventDetail() {
           batches.find((b: any) => b.is_active && b.available_quantity > 0) ||
           batches
             .filter((b: any) => b.available_quantity > 0)
-            .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0];
-        const totalAvailable = batches.reduce((sum: number, b: any) => sum + (b.available_quantity || 0), 0);
+            .sort(
+              (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+            )[0];
+        const totalAvailable = batches.reduce(
+          (sum: number, b: any) => sum + (b.available_quantity || 0),
+          0,
+        );
 
         setEvent({
           id: data.id,
@@ -58,10 +74,14 @@ export default function EventDetail() {
           time: data.event_time,
           location: data.location,
           venue: data.venue,
-          image: data.cover_image_url || "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop",
+          image:
+            data.cover_image_url ||
+            "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop",
           price: activeBatch ? Number(activeBatch.price) : 0,
           category: data.category,
-          availableTickets: activeBatch ? activeBatch.available_quantity : totalAvailable,
+          availableTickets: activeBatch
+            ? activeBatch.available_quantity
+            : totalAvailable,
           organizer: "",
           activeBatchId: activeBatch?.id,
           activeBatchName: activeBatch?.name,
@@ -77,9 +97,7 @@ export default function EventDetail() {
   if (loading) {
     return (
       <MainLayout>
-        <div className="container py-20 text-center">
-          <div className="w-12 h-12 mx-auto rounded-full border-4 border-primary border-t-transparent animate-spin" />
-        </div>
+        <EventDetailSkeleton />
       </MainLayout>
     );
   }
@@ -95,12 +113,15 @@ export default function EventDetail() {
     );
   }
 
-  const formattedDate = new Date(event.date + "T00:00:00").toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const formattedDate = new Date(event.date + "T00:00:00").toLocaleDateString(
+    "pt-BR",
+    {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    },
+  );
 
   const formattedPrice = new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -111,7 +132,11 @@ export default function EventDetail() {
     <MainLayout>
       <div className="relative">
         <div className="aspect-[16/9] md:aspect-[21/9] overflow-hidden">
-          <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
+          <img
+            src={event.image}
+            alt={event.title}
+            className="w-full h-full object-cover"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
         </div>
         <button
@@ -120,7 +145,7 @@ export default function EventDetail() {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <button 
+        <button
           onClick={() => {
             navigator.clipboard.writeText(window.location.href);
             alert("Link do evento copiado com sucesso!");
@@ -145,7 +170,9 @@ export default function EventDetail() {
                   </span>
                 )}
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-4">{event.title}</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-4">
+                {event.title}
+              </h1>
               <div className="grid gap-2.5 mb-6">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4 flex-shrink-0 text-primary/70" />
@@ -157,23 +184,36 @@ export default function EventDetail() {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-4 w-4 flex-shrink-0 text-primary/70" />
-                  <span>{event.venue}, {event.location}</span>
+                  <span>
+                    {event.venue}, {event.location}
+                  </span>
                 </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Users className="h-4 w-4 flex-shrink-0 text-primary/70" />
-                  <span>{event.showRemainingTickets ? `${event.availableTickets.toLocaleString()} ingressos disponíveis` : "Ingressos disponíveis"}</span>
+                  <span>
+                    {event.showRemainingTickets
+                      ? `${event.availableTickets.toLocaleString()} ingressos disponíveis`
+                      : "Ingressos disponíveis"}
+                  </span>
                 </div>
               </div>
               {event.activeBatchName && (
                 <div className="mb-6 p-3 rounded-xl bg-primary/10 border border-primary/20">
                   <p className="text-sm font-semibold text-primary">
-                    {event.activeBatchName}{event.showRemainingTickets ? ` — Restam ${event.availableTickets} ingresso${event.availableTickets !== 1 ? 's' : ''}` : " — Disponível"}
+                    {event.activeBatchName}
+                    {event.showRemainingTickets
+                      ? ` — Restam ${event.availableTickets} ingresso${event.availableTickets !== 1 ? "s" : ""}`
+                      : " — Disponível"}
                   </p>
                 </div>
               )}
               <div className="mb-8">
-                <h2 className="text-base font-semibold text-foreground mb-2">Sobre o evento</h2>
-                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{event.description}</p>
+                <h2 className="text-base font-semibold text-foreground mb-2">
+                  Sobre o evento
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {event.description}
+                </p>
               </div>
             </div>
           </div>
@@ -194,7 +234,9 @@ export default function EventDetail() {
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-bold text-foreground mb-4">{event.title}</h1>
+            <h1 className="text-2xl font-bold text-foreground mb-4">
+              {event.title}
+            </h1>
             <div className="grid gap-2.5 mb-6">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4 flex-shrink-0 text-primary/70" />
@@ -206,23 +248,36 @@ export default function EventDetail() {
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4 flex-shrink-0 text-primary/70" />
-                <span>{event.venue}, {event.location}</span>
+                <span>
+                  {event.venue}, {event.location}
+                </span>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Users className="h-4 w-4 flex-shrink-0 text-primary/70" />
-                <span>{event.showRemainingTickets ? `${event.availableTickets.toLocaleString()} ingressos disponíveis` : "Ingressos disponíveis"}</span>
+                <span>
+                  {event.showRemainingTickets
+                    ? `${event.availableTickets.toLocaleString()} ingressos disponíveis`
+                    : "Ingressos disponíveis"}
+                </span>
               </div>
             </div>
             {event.activeBatchName && (
               <div className="mb-6 p-3 rounded-xl bg-primary/10 border border-primary/20">
                 <p className="text-sm font-semibold text-primary">
-                  {event.activeBatchName}{event.showRemainingTickets ? ` — Restam ${event.availableTickets} ingresso${event.availableTickets !== 1 ? 's' : ''}` : " — Disponível"}
+                  {event.activeBatchName}
+                  {event.showRemainingTickets
+                    ? ` — Restam ${event.availableTickets} ingresso${event.availableTickets !== 1 ? "s" : ""}`
+                    : " — Disponível"}
                 </p>
               </div>
             )}
             <div className="mb-6">
-              <h2 className="text-base font-semibold text-foreground mb-2">Sobre o evento</h2>
-              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{event.description}</p>
+              <h2 className="text-base font-semibold text-foreground mb-2">
+                Sobre o evento
+              </h2>
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                {event.description}
+              </p>
             </div>
           </div>
         </div>
@@ -232,15 +287,25 @@ export default function EventDetail() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-muted-foreground">A partir de</p>
-            <p className="text-xl font-bold text-foreground">{formattedPrice}</p>
+            <p className="text-xl font-bold text-foreground">
+              {formattedPrice}
+            </p>
           </div>
-          <Button onClick={() => setDrawerOpen(true)} size="lg" variant="gradient">
+          <Button
+            onClick={() => setDrawerOpen(true)}
+            size="lg"
+            variant="gradient"
+          >
             Comprar agora
           </Button>
         </div>
       </div>
 
-      <CheckoutDrawer event={event} open={drawerOpen} onOpenChange={setDrawerOpen} />
+      <CheckoutDrawer
+        event={event}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+      />
     </MainLayout>
   );
 }

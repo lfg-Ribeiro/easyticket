@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { Testimonials } from "@/components/home/Testimonials";
 import type { Event } from "@/types/event";
+import { CategoryFilterSkeleton } from "@/components/events/CategoryFilterSkeleton";
+import { EventGridSkeleton } from "@/components/events/EventCardSkeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("Todos");
@@ -20,7 +23,8 @@ const Index = () => {
       setLoading(true);
       const { data } = await supabase
         .from("events")
-        .select(`
+        .select(
+          `
           id,
           title,
           description,
@@ -33,10 +37,11 @@ const Index = () => {
           fee_absorbed,
           show_remaining_tickets,
           ticket_batches (name, price, available_quantity, status, is_active, sort_order)
-        `)
+        `,
+        )
         .eq("published", true)
         .is("deleted_at", null)
-        .gte("event_date", new Date().toISOString().split('T')[0])
+        .gte("event_date", new Date().toISOString().split("T")[0])
         .order("event_date", { ascending: true });
 
       if (data) {
@@ -47,9 +52,20 @@ const Index = () => {
             batches.find((b: any) => b.is_active && b.available_quantity > 0) ||
             batches
               .filter((b: any) => b.available_quantity > 0)
-              .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))[0];
-          const activePrice = activeBatch ? Number(activeBatch.price) : (batches.length > 0 ? Math.min(...batches.map((b: any) => Number(b.price))) : 0);
-          const totalAvailable = activeBatch ? activeBatch.available_quantity : batches.reduce((sum: number, b: any) => sum + (b.available_quantity || 0), 0);
+              .sort(
+                (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+              )[0];
+          const activePrice = activeBatch
+            ? Number(activeBatch.price)
+            : batches.length > 0
+              ? Math.min(...batches.map((b: any) => Number(b.price)))
+              : 0;
+          const totalAvailable = activeBatch
+            ? activeBatch.available_quantity
+            : batches.reduce(
+                (sum: number, b: any) => sum + (b.available_quantity || 0),
+                0,
+              );
 
           return {
             id: e.id,
@@ -59,7 +75,9 @@ const Index = () => {
             time: e.event_time,
             location: e.location,
             venue: e.venue,
-            image: e.cover_image_url || "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop",
+            image:
+              e.cover_image_url ||
+              "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop",
             price: activePrice,
             category: e.category,
             availableTickets: totalAvailable,
@@ -71,7 +89,9 @@ const Index = () => {
         setEvents(mapped);
 
         // Build categories dynamically from the events in the database
-        const uniqueCats = Array.from(new Set(mapped.map((e) => e.category).filter(Boolean)));
+        const uniqueCats = Array.from(
+          new Set(mapped.map((e) => e.category).filter(Boolean)),
+        );
         setCategories(["Todos", ...uniqueCats]);
       }
       setLoading(false);
@@ -82,8 +102,10 @@ const Index = () => {
 
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
-      const matchesCategory = selectedCategory === "Todos" || event.category === selectedCategory;
-      const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      const matchesCategory =
+        selectedCategory === "Todos" || event.category === selectedCategory;
+      const matchesSearch =
+        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.location.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
@@ -115,29 +137,36 @@ const Index = () => {
         </section>
 
         <section className="mb-8">
-          <CategoryFilter
-            categories={categories}
-            selected={selectedCategory}
-            onSelect={setSelectedCategory}
-          />
+          {loading ? (
+            <CategoryFilterSkeleton />
+          ) : (
+            <CategoryFilter
+              categories={categories}
+              selected={selectedCategory}
+              onSelect={setSelectedCategory}
+            />
+          )}
         </section>
 
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-foreground">
-              {selectedCategory === "Todos" ? "Eventos em destaque" : selectedCategory}
+              {selectedCategory === "Todos"
+                ? "Eventos em destaque"
+                : selectedCategory}
             </h2>
-            <span className="text-sm text-muted-foreground">
-              {filteredEvents.length} evento{filteredEvents.length !== 1 ? "s" : ""}
-            </span>
+            {loading ? (
+              <Skeleton className="h-5 w-20" />
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                {filteredEvents.length} evento
+                {filteredEvents.length !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-card rounded-2xl h-72 animate-pulse" />
-              ))}
-            </div>
+            <EventGridSkeleton />
           ) : filteredEvents.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 stagger-children">
               {filteredEvents.map((event) => (
@@ -156,7 +185,7 @@ const Index = () => {
           )}
         </section>
 
-          <Testimonials />
+        <Testimonials />
       </div>
     </MainLayout>
   );
