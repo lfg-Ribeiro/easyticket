@@ -1,12 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Ticket, Mail, Lock, User, ArrowRight, Phone, CreditCard, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError } from "@/components/ui/field-error";
+import { useFieldErrors } from "@/hooks/useFieldErrors";
+import { cn } from "@/lib/utils";
+import {
+  compact,
+  describedBy,
+  errorClass,
+  focusFirstInvalid,
+  validateCpf,
+  validateEmail,
+  validateFullName,
+  validatePassword,
+  validatePhone,
+} from "@/lib/validation";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+
+type AuthField = "fullName" | "cpf" | "phone" | "email" | "password";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -18,6 +34,46 @@ export default function Auth() {
   const [phone, setPhone] = useState("");
   const [cpf, setCpf] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const { errors, setErrors, revalidate, clearErrors } = useFieldErrors<AuthField>();
+  const formRef = useRef<HTMLFormElement>(null);
+  const forgotFormRef = useRef<HTMLFormElement>(null);
+
+  const switchMode = (next: "login" | "signup" | "forgot") => {
+    clearErrors();
+    setMode(next);
+  };
+
+  // Na criação de conta a senha precisa ter 6+ caracteres; no login só exigimos que seja informada
+  // (contas antigas não devem ser bloqueadas por regra de tamanho).
+  const fieldValidators: Record<AuthField, (value: string) => string | undefined> = {
+    fullName: validateFullName,
+    cpf: (value) => validateCpf(value),
+    phone: (value) => validatePhone(value),
+    email: validateEmail,
+    password: (value) => validatePassword(value, { checkLength: mode === "signup" }),
+  };
+
+  /** Atualiza o valor e, se o campo estava com erro, remove-o assim que a correção for válida. */
+  const handleFieldChange = (field: AuthField, value: string, setter: (v: string) => void) => {
+    setter(value);
+    revalidate(field, fieldValidators[field](value));
+  };
+
+  const validateForm = () => {
+    const next = compact<AuthField>({
+      fullName: mode === "signup" ? fieldValidators.fullName(fullName) : undefined,
+      cpf: mode === "signup" ? fieldValidators.cpf(cpf) : undefined,
+      phone: mode === "signup" ? fieldValidators.phone(phone) : undefined,
+      email: fieldValidators.email(email),
+      password: fieldValidators.password(password),
+    });
+    setErrors(next);
+    if (Object.keys(next).length > 0) {
+      focusFirstInvalid(formRef.current);
+      return false;
+    }
+    return true;
+  };
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -45,15 +101,17 @@ export default function Auth() {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
-      toast({ title: "Informe seu e-mail", variant: "destructive" });
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setErrors({ email: emailError });
+      focusFirstInvalid(forgotFormRef.current);
       return;
     }
 
     setSubmitting(true);
     try {
       await supabase.functions.invoke("send-password-reset", {
-        body: { email },
+        body: { email: email.trim() },
       });
       toast({
         title: "E-mail enviado!",
@@ -72,15 +130,12 @@ export default function Auth() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast({ title: "Preencha todos os campos", variant: "destructive" });
-      return;
-    }
+    if (!validateForm()) return;
 
     setSubmitting(true);
     try {
       if (mode === "login") {
-        const { error } = await signIn(email, password);
+        const { error } = await signIn(email.trim(), password);
         if (error) {
           if (error.message.includes("Invalid login")) {
             toast({ title: "E-mail ou senha incorretos", variant: "destructive" });
@@ -91,25 +146,9 @@ export default function Auth() {
         }
         toast({ title: "Login realizado com sucesso!" });
       } else {
-        if (!fullName.trim()) {
-          toast({ title: "Informe seu nome completo", variant: "destructive" });
-          return;
-        }
         const cpfDigits = cpf.replace(/\D/g, "");
-        if (cpfDigits.length !== 11) {
-          toast({ title: "Informe um CPF válido", variant: "destructive" });
-          return;
-        }
         const phoneDigits = phone.replace(/\D/g, "");
-        if (phoneDigits.length < 10) {
-          toast({ title: "Informe um telefone válido", variant: "destructive" });
-          return;
-        }
-        if (password.length < 6) {
-          toast({ title: "A senha deve ter pelo menos 6 caracteres", variant: "destructive" });
-          return;
-        }
-        const { error } = await signUp(email, password, fullName.trim(), cpfDigits, phoneDigits);
+        const { error } = await signUp(email.trim(), password, fullName.trim(), cpfDigits, phoneDigits);
         if (error) {
           if (error.message.includes("already registered")) {
             toast({ title: "Este e-mail já está cadastrado", variant: "destructive" });
@@ -151,7 +190,7 @@ export default function Auth() {
             </p>
           </div>
 
-          <form onSubmit={handleForgotPassword} className="space-y-4">
+          <form ref={forgotFormRef} onSubmit={handleForgotPassword} noValidate className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="resetEmail" className="text-sm font-medium">E-mail</Label>
               <div className="relative">
@@ -160,12 +199,15 @@ export default function Auth() {
                   id="resetEmail"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => handleFieldChange("email", e.target.value, setEmail)}
                   placeholder="seu@email.com"
-                  className="pl-10"
+                  className={cn("pl-10", errorClass(errors.email))}
+                  aria-invalid={errors.email ? true : undefined}
+                  aria-describedby={describedBy("resetEmail", errors.email)}
                   autoFocus
                 />
               </div>
+              <FieldError id="resetEmail" message={errors.email} />
             </div>
 
             <Button type="submit" variant="gradient" size="lg" className="w-full" disabled={submitting}>
@@ -182,7 +224,7 @@ export default function Auth() {
 
           <div className="text-center">
             <button
-              onClick={() => setMode("login")}
+              onClick={() => switchMode("login")}
               className="text-sm text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1"
             >
               <ArrowLeft className="h-3 w-3" />
@@ -206,14 +248,24 @@ export default function Auth() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-4">
           {mode === "signup" && (
             <div className="space-y-2">
               <Label htmlFor="fullName" className="text-sm font-medium">Nome completo</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Seu nome" className="pl-10" />
+                <Input
+                  id="fullName"
+                  value={fullName}
+                  onChange={(e) => handleFieldChange("fullName", e.target.value, setFullName)}
+                  placeholder="Nome e sobrenome"
+                  autoComplete="name"
+                  className={cn("pl-10", errorClass(errors.fullName))}
+                  aria-invalid={errors.fullName ? true : undefined}
+                  aria-describedby={describedBy("fullName", errors.fullName)}
+                />
               </div>
+              <FieldError id="fullName" message={errors.fullName} />
             </div>
           )}
 
@@ -222,8 +274,18 @@ export default function Auth() {
               <Label htmlFor="cpf" className="text-sm font-medium">CPF</Label>
               <div className="relative">
                 <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="cpf" value={cpf} onChange={(e) => setCpf(formatCpf(e.target.value))} placeholder="000.000.000-00" className="pl-10" inputMode="numeric" />
+                <Input
+                  id="cpf"
+                  value={cpf}
+                  onChange={(e) => handleFieldChange("cpf", formatCpf(e.target.value), setCpf)}
+                  placeholder="000.000.000-00"
+                  className={cn("pl-10", errorClass(errors.cpf))}
+                  inputMode="numeric"
+                  aria-invalid={errors.cpf ? true : undefined}
+                  aria-describedby={describedBy("cpf", errors.cpf)}
+                />
               </div>
+              <FieldError id="cpf" message={errors.cpf} />
             </div>
           )}
 
@@ -232,8 +294,18 @@ export default function Auth() {
               <Label htmlFor="phone" className="text-sm font-medium">Telefone</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="phone" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} placeholder="(11) 99999-9999" className="pl-10" inputMode="numeric" />
+                <Input
+                  id="phone"
+                  value={phone}
+                  onChange={(e) => handleFieldChange("phone", formatPhone(e.target.value), setPhone)}
+                  placeholder="(11) 99999-9999"
+                  className={cn("pl-10", errorClass(errors.phone))}
+                  inputMode="numeric"
+                  aria-invalid={errors.phone ? true : undefined}
+                  aria-describedby={describedBy("phone", errors.phone)}
+                />
               </div>
+              <FieldError id="phone" message={errors.phone} />
             </div>
           )}
 
@@ -241,21 +313,43 @@ export default function Auth() {
             <Label htmlFor="email" className="text-sm font-medium">E-mail</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" className="pl-10" />
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => handleFieldChange("email", e.target.value, setEmail)}
+                placeholder="seu@email.com"
+                autoComplete="email"
+                className={cn("pl-10", errorClass(errors.email))}
+                aria-invalid={errors.email ? true : undefined}
+                aria-describedby={describedBy("email", errors.email)}
+              />
             </div>
+            <FieldError id="email" message={errors.email} />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="password" className="text-sm font-medium">Senha</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="pl-10" />
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => handleFieldChange("password", e.target.value, setPassword)}
+                placeholder="••••••••"
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                className={cn("pl-10", errorClass(errors.password))}
+                aria-invalid={errors.password ? true : undefined}
+                aria-describedby={describedBy("password", errors.password)}
+              />
             </div>
+            <FieldError id="password" message={errors.password} />
             {mode === "login" && (
               <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setMode("forgot")}
+                  onClick={() => switchMode("forgot")}
                   className="rounded-sm text-xs text-primary hover:text-primary/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   Esqueci minha senha
@@ -279,7 +373,7 @@ export default function Auth() {
         {/* Toggle mode */}
         <div className="text-center">
           <button
-            onClick={() => setMode(mode === "login" ? "signup" : "login")}
+            onClick={() => switchMode(mode === "login" ? "signup" : "login")}
             className="text-sm text-muted-foreground hover:text-primary transition-colors"
           >
             {mode === "login" ? "Não tem conta? Cadastre-se" : "Já tem conta? Faça login"}

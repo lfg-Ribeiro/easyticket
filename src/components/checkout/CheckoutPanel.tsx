@@ -1,9 +1,26 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Minus, Plus, CreditCard, QrCode, Copy, Check, Shield, Timer, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError } from "@/components/ui/field-error";
+import { BuyerFields } from "@/components/checkout/BuyerFields";
+import { useFieldErrors } from "@/hooks/useFieldErrors";
+import { cn } from "@/lib/utils";
+import {
+  buyerValidators,
+  cardValidators,
+  describedBy,
+  errorClass,
+  focusFirstInvalid,
+  formatPhone,
+  validateBuyer,
+  validateCard,
+  type BuyerField,
+  type CardField,
+  type CardValues,
+} from "@/lib/validation";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useCountdown } from "@/hooks/useCountdown";
@@ -15,6 +32,7 @@ interface CheckoutPanelProps {
 }
 
 type PaymentMethod = "card" | "pix";
+type CheckoutField = BuyerField | CardField;
 type CheckoutStep = "form" | "processing";
 
 export function CheckoutPanel({ event }: CheckoutPanelProps) {
@@ -37,7 +55,10 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     name: "",
     email: "",
     cpf: "",
+    phone: "",
   });
+  const { errors, setErrors, revalidate, clearErrors } = useFieldErrors<CheckoutField>();
+  const rootRef = useRef<HTMLDivElement>(null);
   const [cardData, setCardData] = useState({
     number: "",
     holderName: "",
@@ -58,10 +79,6 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     setQuantity((prev) => Math.max(1, Math.min(maxQuantity, prev + delta)));
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
 
   const formatCPF = (value: string) => {
     const numbers = value.replace(/\D/g, "").slice(0, 11);
@@ -71,12 +88,30 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
   };
 
-  const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCPF(e.target.value);
-    setFormData((prev) => ({ ...prev, cpf: formatted }));
+  /** Aplica a máscara, atualiza o valor e remove o erro assim que a correção for válida. */
+  const handleBuyerChange = (field: BuyerField, rawValue: string) => {
+    const value =
+      field === "cpf" ? formatCPF(rawValue) : field === "phone" ? formatPhone(rawValue) : rawValue;
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    revalidate(field, buyerValidators[field](value));
   };
 
-  const isFormValid = formData.name.trim() && formData.email.includes("@") && formData.cpf.length >= 14;
+  const handleCardChange = (field: CardField, key: keyof CardValues, value: string) => {
+    const next = { ...cardData, [key]: value };
+    setCardData(next);
+    revalidate(field, cardValidators[field](next));
+  };
+
+  /** Valida os dados do comprador (e do cartão, se for o caso) e leva o foco ao primeiro campo inválido. */
+  const runValidation = (includeCard: boolean) => {
+    const next = { ...validateBuyer(formData), ...(includeCard ? validateCard(cardData) : {}) };
+    setErrors(next);
+    if (Object.keys(next).length > 0) {
+      focusFirstInvalid(rootRef.current);
+      return false;
+    }
+    return true;
+  };
 
   const createCheckout = async () => {
     const { data, error } = await supabase.functions.invoke("create-checkout", {
@@ -86,6 +121,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
         buyer_name: formData.name,
         buyer_email: formData.email,
         buyer_cpf: formData.cpf,
+        buyer_phone: formData.phone,
         quantity,
         payment_method: paymentMethod,
       },
@@ -113,10 +149,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
   };
 
   const handleGeneratePix = async () => {
-    if (!isFormValid) {
-      toast({ title: "Preencha todos os campos", variant: "destructive" });
-      return;
-    }
+    if (!runValidation(false)) return;
     setIsGeneratingPix(true);
     try {
       // 1. Create order as pending
@@ -221,17 +254,9 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     return nums;
   };
 
-  const isCardFormValid = isFormValid &&
-    cardData.number.replace(/\D/g, "").length >= 13 &&
-    cardData.holderName.trim().length > 0 &&
-    cardData.expiry.length >= 5 &&
-    cardData.cvv.length >= 3;
 
   const handleCardPayment = async () => {
-    if (!isCardFormValid) {
-      toast({ title: "Preencha todos os campos do cartão", variant: "destructive" });
-      return;
-    }
+    if (!runValidation(true)) return;
     setStep("processing");
     try {
       // 1. Create order
@@ -247,6 +272,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
           customer_cpf: formData.cpf,
           customer_name: formData.name,
           customer_email: formData.email,
+          customer_phone: formData.phone,
           holder_name: cardData.holderName,
           number: cardData.number.replace(/\D/g, ""),
           expiry_month: expiryParts[0],
@@ -297,7 +323,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
   }
 
   return (
-    <div className="bg-card rounded-2xl shadow-elevated p-6 space-y-5 sticky top-24">
+    <div ref={rootRef} className="bg-card rounded-2xl shadow-elevated p-6 space-y-5 sticky top-24">
       <h2 className="text-xl font-bold text-foreground">Finalizar Compra</h2>
 
       {/* Event Mini Summary */}
@@ -345,43 +371,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
       </div>
 
       {/* Guest Checkout Form */}
-      <div className="space-y-3">
-        <h3 className="font-semibold text-foreground">Seus dados</h3>
-        <div>
-          <Label htmlFor="name" className="text-sm">Nome completo</Label>
-          <Input
-            id="name"
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-            placeholder="Seu nome"
-            className="mt-1"
-          />
-        </div>
-        <div>
-          <Label htmlFor="email" className="text-sm">E-mail</Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            placeholder="seu@email.com"
-            className="mt-1"
-          />
-        </div>
-        <div>
-          <Label htmlFor="cpf" className="text-sm">CPF</Label>
-          <Input
-            id="cpf"
-            name="cpf"
-            value={formData.cpf}
-            onChange={handleCPFChange}
-            placeholder="000.000.000-00"
-            className="mt-1"
-          />
-        </div>
-      </div>
+      <BuyerFields idPrefix="p" values={formData} errors={errors} onChange={handleBuyerChange} />
 
       {/* Payment Method */}
       <div className="space-y-3">
@@ -423,21 +413,27 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
               <Input
                 id="cardNumber"
                 value={cardData.number}
-                onChange={(e) => setCardData(prev => ({ ...prev, number: formatCardNumber(e.target.value) }))}
+                onChange={(e) => handleCardChange("cardNumber", "number", formatCardNumber(e.target.value))}
                 placeholder="0000 0000 0000 0000"
-                className="mt-1"
+                className={cn("mt-1", errorClass(errors.cardNumber))}
                 maxLength={19}
+                aria-invalid={errors.cardNumber ? true : undefined}
+                aria-describedby={describedBy("cardNumber", errors.cardNumber)}
               />
+              <FieldError id="cardNumber" message={errors.cardNumber} />
             </div>
             <div>
               <Label htmlFor="holderName" className="text-sm">Nome no Cartão</Label>
               <Input
                 id="holderName"
                 value={cardData.holderName}
-                onChange={(e) => setCardData(prev => ({ ...prev, holderName: e.target.value.toUpperCase() }))}
+                onChange={(e) => handleCardChange("holderName", "holderName", e.target.value.toUpperCase())}
                 placeholder="NOME COMO NO CARTÃO"
-                className="mt-1"
+                className={cn("mt-1", errorClass(errors.holderName))}
+                aria-invalid={errors.holderName ? true : undefined}
+                aria-describedby={describedBy("holderName", errors.holderName)}
               />
+              <FieldError id="holderName" message={errors.holderName} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -445,23 +441,29 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
                 <Input
                   id="expiry"
                   value={cardData.expiry}
-                  onChange={(e) => setCardData(prev => ({ ...prev, expiry: formatExpiry(e.target.value) }))}
+                  onChange={(e) => handleCardChange("expiry", "expiry", formatExpiry(e.target.value))}
                   placeholder="MM/AA"
-                  className="mt-1"
+                  className={cn("mt-1", errorClass(errors.expiry))}
                   maxLength={5}
+                  aria-invalid={errors.expiry ? true : undefined}
+                  aria-describedby={describedBy("expiry", errors.expiry)}
                 />
+                <FieldError id="expiry" message={errors.expiry} />
               </div>
               <div>
                 <Label htmlFor="cvv" className="text-sm">CVV</Label>
                 <Input
                   id="cvv"
                   value={cardData.cvv}
-                  onChange={(e) => setCardData(prev => ({ ...prev, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
+                  onChange={(e) => handleCardChange("cvv", "cvv", e.target.value.replace(/\D/g, "").slice(0, 4))}
                   placeholder="123"
-                  className="mt-1"
+                  className={cn("mt-1", errorClass(errors.cvv))}
                   maxLength={4}
                   type="password"
+                  aria-invalid={errors.cvv ? true : undefined}
+                  aria-describedby={describedBy("cvv", errors.cvv)}
                 />
+                <FieldError id="cvv" message={errors.cvv} />
               </div>
             </div>
           </div>
@@ -475,7 +477,7 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
                 onClick={handleGeneratePix}
                 variant="outline"
                 className="w-full"
-                disabled={isGeneratingPix || !isFormValid}
+                disabled={isGeneratingPix}
               >
                 {isGeneratingPix ? (
                   <>
@@ -614,7 +616,6 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
             variant="gradient"
             size="lg"
             className="w-full"
-            disabled={!isCardFormValid}
           >
             Pagar {formatCurrency(total)}
           </Button>

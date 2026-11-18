@@ -1,9 +1,29 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Plus, Trash2, Loader2, AlertTriangle, CheckCircle2, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { FieldError } from "@/components/ui/field-error";
+import { useFieldErrors } from "@/hooks/useFieldErrors";
+import { cn } from "@/lib/utils";
+import {
+  ERROR_SELECT_CLASS,
+  describedBy,
+  errorClass,
+  eventValidators,
+  focusFirstInvalid,
+  updateBatchFieldError,
+  validateBatchName,
+  validateBatchPrice,
+  validateBatchQuantity,
+  validateBatchRows,
+  validateEventBasics,
+  type BatchErrors,
+  type BatchField,
+  type EventBasics,
+  type EventField,
+} from "@/lib/validation";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -54,7 +74,38 @@ interface BatchRow {
   is_active: boolean;
   sort_order: number;
   isNew?: boolean;
+  /** Chave local de lotes ainda não salvos (lotes salvos usam o próprio id). */
+  uid?: string;
 }
+
+const rowKey = (batch: BatchRow) => batch.id ?? batch.uid ?? "";
+
+/** Ingressos já vendidos de um lote salvo — a quantidade total não pode ficar abaixo disso. */
+const soldOf = (batch: BatchRow) =>
+  batch.id ? Math.max(0, batch.original_total - batch.available_quantity) : 0;
+
+/** Campo do formulário -> campo de validação. */
+const EVENT_FIELD_MAP = {
+  title: "title",
+  category: "category",
+  event_date: "date",
+  event_time: "time",
+  location: "location",
+} as const;
+
+const basicsFrom = (f: {
+  title: string;
+  category: string;
+  event_date: string;
+  event_time: string;
+  location: string;
+}): EventBasics => ({
+  title: f.title,
+  category: f.category,
+  date: f.event_date,
+  time: f.event_time,
+  location: f.location,
+});
 
 interface EditEventFormProps {
   eventId: string | null;
@@ -87,10 +138,19 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
     cover_image_url: "" as string | null,
     organizer_id: "",
   });
+  const { errors, setErrors, revalidate, clearErrors } = useFieldErrors<EventField>();
+  const [batchErrors, setBatchErrors] = useState<Record<string, BatchErrors>>({});
+  const [batchesError, setBatchesError] = useState<string | undefined>();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const batchesErrorRef = useRef<HTMLDivElement>(null);
+  const nextBatchUid = useRef(1);
 
   const load = useCallback(async () => {
     if (!eventId) return;
     setLoading(true);
+    clearErrors();
+    setBatchErrors({});
+    setBatchesError(undefined);
     setCoverFile(null);
     setCoverPreview(null);
     setRemovedBatchIds([]);
@@ -139,17 +199,40 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
       }))
     );
     setLoading(false);
-  }, [eventId]);
+  }, [eventId, clearErrors]);
 
   useEffect(() => {
     if (open && eventId) load();
   }, [open, eventId, load]);
 
-  const setField = (field: string, value: unknown) =>
+  const setField = (field: string, value: unknown) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    // Se o campo estava com erro, revalida com o novo valor (e limpa quando ficar válido).
+    if (field in EVENT_FIELD_MAP) {
+      const validationField = EVENT_FIELD_MAP[field as keyof typeof EVENT_FIELD_MAP];
+      revalidate(
+        validationField,
+        eventValidators[validationField](basicsFrom({ ...form, [field]: value } as typeof form)),
+      );
+    }
+  };
 
-  const updateBatch = (index: number, field: keyof BatchRow, value: string | boolean) =>
+  const batchFieldMessage = (batch: BatchRow, field: BatchField, value: string) => {
+    if (field === "name") return validateBatchName(value);
+    if (field === "price") return validateBatchPrice(value);
+    return validateBatchQuantity(value, Math.max(1, soldOf(batch)));
+  };
+
+  const updateBatch = (index: number, field: keyof BatchRow, value: string | boolean) => {
+    const batch = batches[index];
     setBatches((prev) => prev.map((b, i) => (i === index ? { ...b, [field]: value } : b)));
+    if (batch && (field === "name" || field === "price" || field === "total_quantity")) {
+      const errorField: BatchField = field === "total_quantity" ? "quantity" : field;
+      setBatchErrors((prev) =>
+        updateBatchFieldError(prev, rowKey(batch), errorField, batchFieldMessage(batch, errorField, String(value))),
+      );
+    }
+  };
 
   const setActiveBatch = (index: number) =>
     setBatches((prev) => prev.map((b, i) => ({ ...b, is_active: i === index })));
@@ -166,6 +249,7 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
         is_active: false,
         sort_order: prev.length,
         isNew: true,
+        uid: `new-${nextBatchUid.current++}`,
       },
     ]);
 
@@ -181,6 +265,10 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
     }
     if (batch.id) setRemovedBatchIds((prev) => [...prev, batch.id!]);
     setBatches((prev) => prev.filter((_, i) => i !== index));
+    setBatchErrors((prev) => {
+      const { [rowKey(batch)]: _removed, ...rest } = prev;
+      return rest;
+    });
   };
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -193,8 +281,26 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
 
   const handleSave = async () => {
     if (!eventId) return;
-    if (!form.title || !form.event_date || !form.event_time || !form.location) {
-      toast({ title: "Preencha título, data, horário e local", variant: "destructive" });
+
+    const basicsErrors = validateEventBasics(basicsFrom(form));
+    const { rowErrors, general } = validateBatchRows(
+      batches.map((b) => ({
+        key: rowKey(b),
+        name: b.name,
+        price: b.price,
+        quantity: b.total_quantity,
+        minimumQuantity: Math.max(1, soldOf(b)),
+      })),
+    );
+    setErrors(basicsErrors);
+    setBatchErrors(rowErrors);
+    setBatchesError(general);
+    if (Object.keys(basicsErrors).length > 0 || Object.keys(rowErrors).length > 0) {
+      focusFirstInvalid(contentRef.current);
+      return;
+    }
+    if (general) {
+      batchesErrorRef.current?.scrollIntoView?.({ behavior: "smooth", block: "center" });
       return;
     }
 
@@ -335,7 +441,7 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg max-h-[85dvh] flex flex-col p-0 gap-0">
+        <DialogContent ref={contentRef} className="sm:max-w-lg max-h-[85dvh] flex flex-col p-0 gap-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
             <DialogTitle className="text-xl font-bold">Editar Evento</DialogTitle>
           </DialogHeader>
@@ -390,13 +496,22 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
                   id="edit-title"
                   value={form.title}
                   onChange={(e) => setField("title", e.target.value)}
+                  className={errorClass(errors.title)}
+                  aria-invalid={errors.title ? true : undefined}
+                  aria-describedby={describedBy("edit-title", errors.title)}
                 />
+                <FieldError id="edit-title" message={errors.title} />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">Categoria</Label>
+                <Label htmlFor="edit-category" className="text-sm font-semibold">Categoria</Label>
                 <Select value={form.category} onValueChange={(v) => setField("category", v)}>
-                  <SelectTrigger>
+                  <SelectTrigger
+                    id="edit-category"
+                    className={errorClass(errors.category, ERROR_SELECT_CLASS)}
+                    aria-invalid={errors.category ? true : undefined}
+                    aria-describedby={describedBy("edit-category", errors.category)}
+                  >
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -405,6 +520,7 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
                     ))}
                   </SelectContent>
                 </Select>
+                <FieldError id="edit-category" message={errors.category} />
               </div>
 
               <div className="grid grid-cols-3 gap-3">
@@ -415,7 +531,11 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
                     type="date"
                     value={form.event_date}
                     onChange={(e) => setField("event_date", e.target.value)}
+                    className={errorClass(errors.date)}
+                    aria-invalid={errors.date ? true : undefined}
+                    aria-describedby={describedBy("edit-date", errors.date)}
                   />
+                  <FieldError id="edit-date" message={errors.date} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-time" className="text-sm font-semibold">Início</Label>
@@ -424,7 +544,11 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
                     type="time"
                     value={form.event_time}
                     onChange={(e) => setField("event_time", e.target.value)}
+                    className={errorClass(errors.time)}
+                    aria-invalid={errors.time ? true : undefined}
+                    aria-describedby={describedBy("edit-time", errors.time)}
                   />
+                  <FieldError id="edit-time" message={errors.time} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-end" className="text-sm font-semibold">Término</Label>
@@ -443,7 +567,11 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
                   id="edit-location"
                   value={form.location}
                   onChange={(e) => setField("location", e.target.value)}
+                  className={errorClass(errors.location)}
+                  aria-invalid={errors.location ? true : undefined}
+                  aria-describedby={describedBy("edit-location", errors.location)}
                 />
+                <FieldError id="edit-location" message={errors.location} />
               </div>
 
               <div className="space-y-2">
@@ -504,69 +632,102 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
                 {batches.length === 0 && (
                   <p className="text-xs text-muted-foreground">Nenhum lote cadastrado.</p>
                 )}
+                <div ref={batchesErrorRef}>
+                  <FieldError id="edit-batches" message={batchesError} />
+                </div>
 
-                {batches.map((batch, index) => (
-                  <div key={batch.id ?? `new-${index}`} className="rounded-xl border border-border p-3 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <Input
-                        value={batch.name}
-                        onChange={(e) => updateBatch(index, "name", e.target.value)}
-                        placeholder="Nome do lote"
-                        className="h-9"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeBatch(index)}
-                        aria-label={`Remover ${batch.name}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Preço (R$)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={batch.price}
-                          onChange={(e) => updateBatch(index, "price", e.target.value)}
-                          className="h-9"
-                        />
+                {batches.map((batch, index) => {
+                  const key = rowKey(batch);
+                  const rowErrors = batchErrors[key] ?? {};
+                  const hasRowErrors = Object.keys(rowErrors).length > 0;
+                  const nameId = `edit-batch-${key}-name`;
+                  const priceId = `edit-batch-${key}-price`;
+                  const quantityId = `edit-batch-${key}-quantity`;
+                  return (
+                    <div
+                      key={key || `new-${index}`}
+                      className={cn(
+                        "rounded-xl border border-border p-3 space-y-3",
+                        hasRowErrors && "border-destructive/60 bg-destructive/5"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <Input
+                            id={nameId}
+                            value={batch.name}
+                            onChange={(e) => updateBatch(index, "name", e.target.value)}
+                            placeholder="Nome do lote"
+                            aria-label="Nome do lote"
+                            className={cn("h-9", errorClass(rowErrors.name))}
+                            aria-invalid={rowErrors.name ? true : undefined}
+                            aria-describedby={describedBy(nameId, rowErrors.name)}
+                          />
+                          <FieldError id={nameId} message={rowErrors.name} />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeBatch(index)}
+                          aria-label={`Remover ${batch.name}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Quantidade total</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={batch.total_quantity}
-                          onChange={(e) => updateBatch(index, "total_quantity", e.target.value)}
-                          className="h-9"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label htmlFor={priceId} className="text-xs text-muted-foreground">Preço (R$)</Label>
+                          <Input
+                            id={priceId}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={batch.price}
+                            onChange={(e) => updateBatch(index, "price", e.target.value)}
+                            className={cn("h-9", errorClass(rowErrors.price))}
+                            aria-invalid={rowErrors.price ? true : undefined}
+                            aria-describedby={describedBy(priceId, rowErrors.price)}
+                          />
+                          <FieldError id={priceId} message={rowErrors.price} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor={quantityId} className="text-xs text-muted-foreground">Quantidade total</Label>
+                          <Input
+                            id={quantityId}
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={batch.total_quantity}
+                            onChange={(e) => updateBatch(index, "total_quantity", e.target.value)}
+                            className={cn("h-9", errorClass(rowErrors.quantity))}
+                            aria-invalid={rowErrors.quantity ? true : undefined}
+                            aria-describedby={describedBy(quantityId, rowErrors.quantity)}
+                          />
+                          <FieldError id={quantityId} message={rowErrors.quantity} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          {batch.id ? `${batch.available_quantity} disponíveis` : "Novo lote"}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {batch.is_active && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Ativo
+                            </span>
+                          )}
+                          <Switch
+                            checked={batch.is_active}
+                            disabled={batch.is_active}
+                            onCheckedChange={() => setActiveBatch(index)}
+                            aria-label={`Ativar ${batch.name}`}
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        {batch.id ? `${batch.available_quantity} disponíveis` : "Novo lote"}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {batch.is_active && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Ativo
-                          </span>
-                        )}
-                        <Switch
-                          checked={batch.is_active}
-                          disabled={batch.is_active}
-                          onCheckedChange={() => setActiveBatch(index)}
-                          aria-label={`Ativar ${batch.name}`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

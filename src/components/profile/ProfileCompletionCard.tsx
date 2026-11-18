@@ -1,7 +1,18 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError } from "@/components/ui/field-error";
+import { useFieldErrors } from "@/hooks/useFieldErrors";
+import { cn } from "@/lib/utils";
+import {
+  compact,
+  describedBy,
+  errorClass,
+  focusFirstInvalid,
+  validateCpf,
+  validatePhone,
+} from "@/lib/validation";
 import { Phone, CreditCard, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -22,6 +33,8 @@ export function ProfileCompletionCard({
   const [phone, setPhone] = useState(currentPhone || "");
   const [cpf, setCpf] = useState(currentCpf || "");
   const [saving, setSaving] = useState(false);
+  const { errors, setErrors, revalidate } = useFieldErrors<"phone" | "cpf">();
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const isComplete = !!currentPhone && !!currentCpf;
 
@@ -47,12 +60,14 @@ export function ProfileCompletionCard({
     const phoneDigits = phone.replace(/\D/g, "");
     const cpfDigits = cpf.replace(/\D/g, "");
 
-    if (phoneDigits.length < 10) {
-      toast({ title: "Informe um telefone válido", variant: "destructive" });
-      return;
-    }
-    if (cpfDigits.length !== 11) {
-      toast({ title: "Informe um CPF válido", variant: "destructive" });
+    // Valida apenas os campos exibidos (o que já está salvo não é reavaliado aqui).
+    const nextErrors = compact({
+      phone: !currentPhone ? validatePhone(phone) : undefined,
+      cpf: !currentCpf ? validateCpf(cpf) : undefined,
+    });
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      focusFirstInvalid(cardRef.current);
       return;
     }
 
@@ -74,7 +89,7 @@ export function ProfileCompletionCard({
   };
 
   return (
-    <div className="bg-primary/5 border border-primary/20 rounded-2xl p-5 space-y-4">
+    <div ref={cardRef} className="bg-primary/5 border border-primary/20 rounded-2xl p-5 space-y-4">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
           <CheckCircle2 className="h-5 w-5 text-primary" />
@@ -97,11 +112,19 @@ export function ProfileCompletionCard({
             <Input
               id="phone"
               value={phone}
-              onChange={(e) => setPhone(formatPhone(e.target.value))}
+              onChange={(e) => {
+                const formatted = formatPhone(e.target.value);
+                setPhone(formatted);
+                revalidate("phone", validatePhone(formatted));
+              }}
               placeholder="(11) 99999-9999"
-              className="pl-10"
+              className={cn("pl-10", errorClass(errors.phone))}
+              inputMode="numeric"
+              aria-invalid={errors.phone ? true : undefined}
+              aria-describedby={describedBy("phone", errors.phone)}
             />
           </div>
+          <FieldError id="phone" message={errors.phone} />
         </div>
       )}
 
@@ -115,11 +138,19 @@ export function ProfileCompletionCard({
             <Input
               id="cpf"
               value={cpf}
-              onChange={(e) => setCpf(formatCpf(e.target.value))}
+              onChange={(e) => {
+                const formatted = formatCpf(e.target.value);
+                setCpf(formatted);
+                revalidate("cpf", validateCpf(formatted));
+              }}
               placeholder="000.000.000-00"
-              className="pl-10"
+              className={cn("pl-10", errorClass(errors.cpf))}
+              inputMode="numeric"
+              aria-invalid={errors.cpf ? true : undefined}
+              aria-describedby={describedBy("cpf", errors.cpf)}
             />
           </div>
+          <FieldError id="cpf" message={errors.cpf} />
         </div>
       )}
 

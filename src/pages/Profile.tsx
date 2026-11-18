@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { ProfileCompletionCard } from "@/components/profile/ProfileCompletionCard";
 import { EditProfileDrawer } from "@/components/profile/EditProfileDrawer";
 import { useToast } from "@/hooks/use-toast";
+import { FieldError } from "@/components/ui/field-error";
+import { useFieldErrors } from "@/hooks/useFieldErrors";
+import { cn } from "@/lib/utils";
+import {
+  compact,
+  describedBy,
+  errorClass,
+  focusFirstInvalid,
+  validateNewPassword,
+  validatePasswordConfirmation,
+} from "@/lib/validation";
 
 interface ProfileData {
   full_name: string | null;
@@ -27,6 +38,8 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const { errors, setErrors, revalidate, clearErrors } = useFieldErrors<"newPassword" | "confirmPassword">();
+  const passwordSectionRef = useRef<HTMLElement>(null);
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -48,12 +61,13 @@ export default function Profile() {
   };
 
   const handleChangePassword = async () => {
-    if (newPassword.length < 6) {
-      toast({ title: "Senha muito curta", description: "Mínimo de 6 caracteres.", variant: "destructive" });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast({ title: "Senhas não conferem", description: "Verifique e tente novamente.", variant: "destructive" });
+    const nextErrors = compact({
+      newPassword: validateNewPassword(newPassword),
+      confirmPassword: validatePasswordConfirmation(newPassword, confirmPassword),
+    });
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      focusFirstInvalid(passwordSectionRef.current);
       return;
     }
     setChangingPassword(true);
@@ -65,6 +79,7 @@ export default function Profile() {
       toast({ title: "Senha alterada com sucesso!" });
       setNewPassword("");
       setConfirmPassword("");
+      clearErrors();
     }
   };
 
@@ -126,7 +141,7 @@ export default function Profile() {
 
         {/* Change Password */}
         {user && (
-          <section className="bg-card rounded-2xl shadow-card overflow-hidden mb-8 p-5">
+          <section ref={passwordSectionRef} className="bg-card rounded-2xl shadow-card overflow-hidden mb-8 p-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
                 <Lock className="h-5 w-5 text-muted-foreground" />
@@ -141,8 +156,17 @@ export default function Profile() {
                     id="new-password"
                     type={showPassword ? "text" : "password"}
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                      revalidate("newPassword", validateNewPassword(e.target.value));
+                      // a confirmação pode passar a conferir (ou deixar de conferir) com a nova senha
+                      revalidate("confirmPassword", validatePasswordConfirmation(e.target.value, confirmPassword));
+                    }}
                     placeholder="Mínimo 6 caracteres"
+                    className={cn("pr-10", errorClass(errors.newPassword))}
+                    autoComplete="new-password"
+                    aria-invalid={errors.newPassword ? true : undefined}
+                    aria-describedby={describedBy("new-password", errors.newPassword)}
                   />
                   <button
                     type="button"
@@ -152,6 +176,7 @@ export default function Profile() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                <FieldError id="new-password" message={errors.newPassword} />
               </div>
               <div>
                 <Label htmlFor="confirm-password" className="text-sm text-muted-foreground">Confirmar senha</Label>
@@ -159,13 +184,21 @@ export default function Profile() {
                   id="confirm-password"
                   type={showPassword ? "text" : "password"}
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    revalidate("confirmPassword", validatePasswordConfirmation(newPassword, e.target.value));
+                  }}
                   placeholder="Repita a nova senha"
+                  className={errorClass(errors.confirmPassword)}
+                  autoComplete="new-password"
+                  aria-invalid={errors.confirmPassword ? true : undefined}
+                  aria-describedby={describedBy("confirm-password", errors.confirmPassword)}
                 />
+                <FieldError id="confirm-password" message={errors.confirmPassword} />
               </div>
               <Button
                 onClick={handleChangePassword}
-                disabled={changingPassword || !newPassword}
+                disabled={changingPassword}
                 className="w-full"
               >
                 {changingPassword ? "Salvando..." : "Salvar nova senha"}

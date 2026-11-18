@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Minus, Plus, CreditCard, QrCode, Copy, Check, X, Timer, RefreshCw } from "lucide-react";
 import {
@@ -11,6 +11,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError } from "@/components/ui/field-error";
+import { BuyerFields } from "@/components/checkout/BuyerFields";
+import { useFieldErrors } from "@/hooks/useFieldErrors";
+import { cn } from "@/lib/utils";
+import {
+  buyerValidators,
+  cardValidators,
+  describedBy,
+  errorClass,
+  focusFirstInvalid,
+  formatPhone,
+  validateBuyer,
+  validateCard,
+  type BuyerField,
+  type CardField,
+  type CardValues,
+} from "@/lib/validation";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useCountdown } from "@/hooks/useCountdown";
@@ -24,6 +41,7 @@ interface CheckoutDrawerProps {
 }
 
 type PaymentMethod = "card" | "pix";
+type CheckoutField = BuyerField | CardField;
 type CheckoutStep = "quantity" | "payment" | "processing";
 
 export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProps) {
@@ -45,7 +63,10 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
     name: "",
     email: "",
     cpf: "",
+    phone: "",
   });
+  const { errors, setErrors, revalidate, clearErrors } = useFieldErrors<CheckoutField>();
+  const rootRef = useRef<HTMLDivElement>(null);
   const [cardData, setCardData] = useState({
     number: "",
     holderName: "",
@@ -66,10 +87,6 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
     setQuantity((prev) => Math.max(1, Math.min(maxQuantity, prev + delta)));
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
 
   const formatCPF = (value: string) => {
     const numbers = value.replace(/\D/g, "").slice(0, 11);
@@ -79,12 +96,30 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
       .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
   };
 
-  const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCPF(e.target.value);
-    setFormData((prev) => ({ ...prev, cpf: formatted }));
+  /** Aplica a máscara, atualiza o valor e remove o erro assim que a correção for válida. */
+  const handleBuyerChange = (field: BuyerField, rawValue: string) => {
+    const value =
+      field === "cpf" ? formatCPF(rawValue) : field === "phone" ? formatPhone(rawValue) : rawValue;
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    revalidate(field, buyerValidators[field](value));
   };
 
-  const isFormValid = formData.name.trim() && formData.email.includes("@") && formData.cpf.length >= 14;
+  const handleCardChange = (field: CardField, key: keyof CardValues, value: string) => {
+    const next = { ...cardData, [key]: value };
+    setCardData(next);
+    revalidate(field, cardValidators[field](next));
+  };
+
+  /** Valida os dados do comprador (e do cartão, se for o caso) e leva o foco ao primeiro campo inválido. */
+  const runValidation = (includeCard: boolean) => {
+    const next = { ...validateBuyer(formData), ...(includeCard ? validateCard(cardData) : {}) };
+    setErrors(next);
+    if (Object.keys(next).length > 0) {
+      focusFirstInvalid(rootRef.current);
+      return false;
+    }
+    return true;
+  };
 
   const createCheckout = async () => {
     const { data, error } = await supabase.functions.invoke("create-checkout", {
@@ -94,6 +129,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
         buyer_name: formData.name,
         buyer_email: formData.email,
         buyer_cpf: formData.cpf,
+        buyer_phone: formData.phone,
         quantity,
         payment_method: paymentMethod,
       },
@@ -121,10 +157,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
   };
 
   const handleGeneratePix = async () => {
-    if (!isFormValid) {
-      toast({ title: "Preencha todos os campos", variant: "destructive" });
-      return;
-    }
+    if (!runValidation(false)) return;
     setIsGeneratingPix(true);
     try {
       // 1. Create order as pending
@@ -227,17 +260,9 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
     return nums;
   };
 
-  const isCardFormValid = isFormValid &&
-    cardData.number.replace(/\D/g, "").length >= 13 &&
-    cardData.holderName.trim().length > 0 &&
-    cardData.expiry.length >= 5 &&
-    cardData.cvv.length >= 3;
 
   const handleCardPayment = async () => {
-    if (!isCardFormValid) {
-      toast({ title: "Preencha todos os campos do cartão", variant: "destructive" });
-      return;
-    }
+    if (!runValidation(true)) return;
     setStep("processing");
     try {
       const checkoutResult = await createCheckout();
@@ -251,6 +276,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
           customer_cpf: formData.cpf,
           customer_name: formData.name,
           customer_email: formData.email,
+          customer_phone: formData.phone,
           holder_name: cardData.holderName,
           number: cardData.number.replace(/\D/g, ""),
           expiry_month: expiryParts[0],
@@ -282,7 +308,8 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
     setQuantity(1);
     setPaymentMethod("pix");
     setPixGenerated(false);
-    setFormData({ name: "", email: "", cpf: "" });
+    setFormData({ name: "", email: "", cpf: "", phone: "" });
+    clearErrors();
     onOpenChange(false);
   };
 
@@ -299,7 +326,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
             </DrawerTitle>
           </DrawerHeader>
 
-          <div className="px-4 pb-6 space-y-5 overflow-y-auto max-h-[70vh]">
+          <div ref={rootRef} className="px-4 pb-6 space-y-5 overflow-y-auto max-h-[70vh]">
             {step === "processing" ? (
               <div className="text-center py-12 space-y-4">
                 <div className="w-16 h-16 mx-auto rounded-full border-4 border-primary border-t-transparent animate-spin" />
@@ -352,43 +379,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                 </div>
 
                 {/* Guest Checkout Form */}
-                <div className="space-y-3">
-                  <h3 className="font-semibold text-foreground">Seus dados</h3>
-                  <div>
-                    <Label htmlFor="name" className="text-sm">Nome completo</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      placeholder="Seu nome"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email" className="text-sm">E-mail</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      placeholder="seu@email.com"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="cpf" className="text-sm">CPF</Label>
-                    <Input
-                      id="cpf"
-                      name="cpf"
-                      value={formData.cpf}
-                      onChange={handleCPFChange}
-                      placeholder="000.000.000-00"
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
+                <BuyerFields idPrefix="d" values={formData} errors={errors} onChange={handleBuyerChange} />
 
                 {/* Payment Method */}
                 <div className="space-y-3">
@@ -430,21 +421,27 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                         <Input
                           id="d-cardNumber"
                           value={cardData.number}
-                          onChange={(e) => setCardData(prev => ({ ...prev, number: formatCardNumber(e.target.value) }))}
+                          onChange={(e) => handleCardChange("cardNumber", "number", formatCardNumber(e.target.value))}
                           placeholder="0000 0000 0000 0000"
-                          className="mt-1"
+                          className={cn("mt-1", errorClass(errors.cardNumber))}
                           maxLength={19}
+                          aria-invalid={errors.cardNumber ? true : undefined}
+                          aria-describedby={describedBy("d-cardNumber", errors.cardNumber)}
                         />
+                        <FieldError id="d-cardNumber" message={errors.cardNumber} />
                       </div>
                       <div>
                         <Label htmlFor="d-holderName" className="text-sm">Nome no Cartão</Label>
                         <Input
                           id="d-holderName"
                           value={cardData.holderName}
-                          onChange={(e) => setCardData(prev => ({ ...prev, holderName: e.target.value.toUpperCase() }))}
+                          onChange={(e) => handleCardChange("holderName", "holderName", e.target.value.toUpperCase())}
                           placeholder="NOME COMO NO CARTÃO"
-                          className="mt-1"
+                          className={cn("mt-1", errorClass(errors.holderName))}
+                          aria-invalid={errors.holderName ? true : undefined}
+                          aria-describedby={describedBy("d-holderName", errors.holderName)}
                         />
+                        <FieldError id="d-holderName" message={errors.holderName} />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -452,23 +449,29 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                           <Input
                             id="d-expiry"
                             value={cardData.expiry}
-                            onChange={(e) => setCardData(prev => ({ ...prev, expiry: formatExpiry(e.target.value) }))}
+                            onChange={(e) => handleCardChange("expiry", "expiry", formatExpiry(e.target.value))}
                             placeholder="MM/AA"
-                            className="mt-1"
+                            className={cn("mt-1", errorClass(errors.expiry))}
                             maxLength={5}
+                            aria-invalid={errors.expiry ? true : undefined}
+                            aria-describedby={describedBy("d-expiry", errors.expiry)}
                           />
+                          <FieldError id="d-expiry" message={errors.expiry} />
                         </div>
                         <div>
                           <Label htmlFor="d-cvv" className="text-sm">CVV</Label>
                           <Input
                             id="d-cvv"
                             value={cardData.cvv}
-                            onChange={(e) => setCardData(prev => ({ ...prev, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
+                            onChange={(e) => handleCardChange("cvv", "cvv", e.target.value.replace(/\D/g, "").slice(0, 4))}
                             placeholder="123"
-                            className="mt-1"
+                            className={cn("mt-1", errorClass(errors.cvv))}
                             maxLength={4}
                             type="password"
+                            aria-invalid={errors.cvv ? true : undefined}
+                            aria-describedby={describedBy("d-cvv", errors.cvv)}
                           />
+                          <FieldError id="d-cvv" message={errors.cvv} />
                         </div>
                       </div>
                     </div>
@@ -482,7 +485,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                           onClick={handleGeneratePix}
                           variant="outline"
                           className="w-full"
-                          disabled={isGeneratingPix || !isFormValid}
+                          disabled={isGeneratingPix}
                         >
                           {isGeneratingPix ? (
                             <>
@@ -626,7 +629,6 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                       variant="gradient"
                       size="lg"
                       className="w-full"
-                      disabled={!isCardFormValid}
                     >
                       Pagar {formatCurrency(total)}
                     </Button>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Drawer,
   DrawerContent,
@@ -10,6 +10,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FieldError } from "@/components/ui/field-error";
+import { useFieldErrors } from "@/hooks/useFieldErrors";
+import { cn } from "@/lib/utils";
+import {
+  compact,
+  describedBy,
+  errorClass,
+  focusFirstInvalid,
+  validateCpf,
+  validateFullName,
+  validatePhone,
+} from "@/lib/validation";
 import { User, Phone, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -53,37 +65,35 @@ export function EditProfileDrawer({
   const [phone, setPhone] = useState("");
   const [cpf, setCpf] = useState("");
   const [saving, setSaving] = useState(false);
+  const { errors, setErrors, revalidate, clearErrors } = useFieldErrors<"name" | "phone" | "cpf">();
+  const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) {
+      clearErrors();
       setName(currentName || "");
       setPhone(currentPhone ? formatPhone(currentPhone) : "");
       setCpf(currentCpf ? formatCpf(currentCpf) : "");
     }
-  }, [open, currentName, currentPhone, currentCpf]);
+  }, [open, currentName, currentPhone, currentCpf, clearErrors]);
 
   const handleSave = async () => {
     const phoneDigits = phone.replace(/\D/g, "");
     const cpfDigits = cpf.replace(/\D/g, "");
 
-    if (phoneDigits.length > 0 && phoneDigits.length < 10) {
-      toast({ title: "Informe um telefone válido", variant: "destructive" });
-      return;
-    }
-    if (cpfDigits.length > 0 && cpfDigits.length !== 11) {
-      toast({ title: "Informe um CPF válido", variant: "destructive" });
+    // Telefone e CPF são opcionais no perfil, mas, se preenchidos, precisam ser válidos.
+    const nextErrors = compact({
+      name: validateFullName(name),
+      phone: validatePhone(phone, { required: false }),
+      cpf: validateCpf(cpf, { required: false }),
+    });
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      focusFirstInvalid(formRef.current);
       return;
     }
 
     const trimmedName = name.trim();
-    if (trimmedName.length === 0) {
-      toast({ title: "Informe seu nome", variant: "destructive" });
-      return;
-    }
-    if (trimmedName.length > 100) {
-      toast({ title: "Nome muito longo (máx. 100 caracteres)", variant: "destructive" });
-      return;
-    }
 
     setSaving(true);
 
@@ -118,7 +128,7 @@ export function EditProfileDrawer({
             <DrawerTitle>Editar perfil</DrawerTitle>
           </DrawerHeader>
 
-          <div className="px-4 space-y-4">
+          <div ref={formRef} className="px-4 space-y-4">
             {/* Nome */}
             <div className="space-y-1.5">
               <Label htmlFor="edit-name" className="text-sm font-medium">
@@ -129,12 +139,18 @@ export function EditProfileDrawer({
                 <Input
                   id="edit-name"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    revalidate("name", validateFullName(e.target.value));
+                  }}
                   placeholder="Seu nome completo"
-                  className="pl-10"
+                  className={cn("pl-10", errorClass(errors.name))}
                   maxLength={100}
+                  aria-invalid={errors.name ? true : undefined}
+                  aria-describedby={describedBy("edit-name", errors.name)}
                 />
               </div>
+              <FieldError id="edit-name" message={errors.name} />
             </div>
 
             {/* Telefone */}
@@ -147,12 +163,19 @@ export function EditProfileDrawer({
                 <Input
                   id="edit-phone"
                   value={phone}
-                  onChange={(e) => setPhone(formatPhone(e.target.value))}
+                  onChange={(e) => {
+                    const formatted = formatPhone(e.target.value);
+                    setPhone(formatted);
+                    revalidate("phone", validatePhone(formatted, { required: false }));
+                  }}
                   placeholder="(11) 99999-9999"
-                  className="pl-10"
+                  className={cn("pl-10", errorClass(errors.phone))}
                   inputMode="numeric"
+                  aria-invalid={errors.phone ? true : undefined}
+                  aria-describedby={describedBy("edit-phone", errors.phone)}
                 />
               </div>
+              <FieldError id="edit-phone" message={errors.phone} />
             </div>
 
             {/* CPF */}
@@ -165,12 +188,19 @@ export function EditProfileDrawer({
                 <Input
                   id="edit-cpf"
                   value={cpf}
-                  onChange={(e) => setCpf(formatCpf(e.target.value))}
+                  onChange={(e) => {
+                    const formatted = formatCpf(e.target.value);
+                    setCpf(formatted);
+                    revalidate("cpf", validateCpf(formatted, { required: false }));
+                  }}
                   placeholder="000.000.000-00"
-                  className="pl-10"
+                  className={cn("pl-10", errorClass(errors.cpf))}
                   inputMode="numeric"
+                  aria-invalid={errors.cpf ? true : undefined}
+                  aria-describedby={describedBy("edit-cpf", errors.cpf)}
                 />
               </div>
+              <FieldError id="edit-cpf" message={errors.cpf} />
             </div>
           </div>
 

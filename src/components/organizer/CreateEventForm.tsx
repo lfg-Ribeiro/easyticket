@@ -1,9 +1,28 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Check, ChevronRight, Image, MapPin, Calendar, Tag, Settings, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { FieldError } from "@/components/ui/field-error";
+import { useFieldErrors } from "@/hooks/useFieldErrors";
+import { cn } from "@/lib/utils";
+import {
+  ERROR_SELECT_CLASS,
+  describedBy,
+  errorClass,
+  eventValidators,
+  focusFirstInvalid,
+  updateBatchFieldError,
+  validateBatchName,
+  validateBatchPrice,
+  validateBatchQuantity,
+  validateBatchRows,
+  validateEventBasics,
+  type BatchErrors,
+  type BatchField,
+  type EventField,
+} from "@/lib/validation";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -72,11 +91,69 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
     description: "",
     category: "",
   });
+  const { errors, setErrors, revalidate, clearErrors } = useFieldErrors<EventField>();
+  const [batchErrors, setBatchErrors] = useState<Record<string, BatchErrors>>({});
+  const contentRef = useRef<HTMLDivElement>(null);
+  const nextBatchId = useRef(2); // ids únicos mesmo após remover lotes
+
+  const batchFieldValidators: Record<BatchField, (value: string) => string | undefined> = {
+    name: validateBatchName,
+    price: validateBatchPrice,
+    quantity: (value) => validateBatchQuantity(value),
+  };
+
+  /** Atualiza um campo do evento e remove o erro dele assim que o valor for válido. */
+  const setEventField = (field: keyof typeof formData, value: string) => {
+    const next = { ...formData, [field]: value };
+    setFormData(next);
+    if (field in eventValidators) {
+      revalidate(field as EventField, eventValidators[field as EventField](next));
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
-    const field = id.replace("event-", "");
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    const field = id.replace("event-", "") as keyof typeof formData;
+    setEventField(field, value);
+  };
+
+  const validateStepOne = () => {
+    const next = validateEventBasics(formData);
+    setErrors(next);
+    if (Object.keys(next).length > 0) {
+      focusFirstInvalid(contentRef.current);
+      return false;
+    }
+    return true;
+  };
+
+  const validateStepTwo = () => {
+    const { rowErrors } = validateBatchRows(
+      batches.map((b) => ({ key: b.id, name: b.name, price: b.price, quantity: b.quantity })),
+    );
+    setBatchErrors(rowErrors);
+    if (Object.keys(rowErrors).length > 0) {
+      focusFirstInvalid(contentRef.current);
+      return false;
+    }
+    return true;
+  };
+
+  /** Voltar é livre; avançar exige que as etapas anteriores ao destino estejam válidas. */
+  const goToStep = (target: number) => {
+    if (target <= currentStep) {
+      setCurrentStep(target);
+      return;
+    }
+    if (currentStep <= 1 && target >= 2 && !validateStepOne()) {
+      setCurrentStep(1);
+      return;
+    }
+    if (currentStep <= 2 && target >= 3 && !validateStepTwo()) {
+      setCurrentStep(2);
+      return;
+    }
+    setCurrentStep(target);
   };
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,13 +167,17 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
   const addBatch = () => {
     setBatches((prev) => [
       ...prev,
-      { id: String(prev.length + 1), name: `Lote ${prev.length + 1}`, price: "", quantity: "" },
+      { id: String(nextBatchId.current++), name: `Lote ${prev.length + 1}`, price: "", quantity: "" },
     ]);
   };
 
   const removeBatch = (id: string) => {
     if (batches.length > 1) {
       setBatches((prev) => prev.filter((b) => b.id !== id));
+      setBatchErrors((prev) => {
+        const { [id]: _removed, ...rest } = prev;
+        return rest;
+      });
     }
   };
 
@@ -104,6 +185,11 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
     setBatches((prev) =>
       prev.map((b) => (b.id === id ? { ...b, [field]: value } : b))
     );
+    if (field !== "id") {
+      setBatchErrors((prev) =>
+        updateBatchFieldError(prev, id, field, batchFieldValidators[field](value)),
+      );
+    }
   };
 
   const resetForm = () => {
@@ -114,6 +200,9 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
     setCoverPreview(null);
     setBatches([{ id: "1", name: "Lote 1", price: "", quantity: "" }]);
     setFormData({ title: "", date: "", time: "", location: "", description: "", category: "" });
+    nextBatchId.current = 2;
+    clearErrors();
+    setBatchErrors({});
   };
 
   const handleSubmit = async () => {
@@ -122,15 +211,13 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
       return;
     }
 
-    if (!formData.title || !formData.date || !formData.time || !formData.location) {
-      toast({ title: "Preencha as informações básicas", variant: "destructive" });
+    // Validação final (cobre quem chegou à etapa 3 sem passar pelos botões "Próximo")
+    if (!validateStepOne()) {
       setCurrentStep(1);
       return;
     }
-
-    if (!formData.category) {
-      toast({ title: "Selecione uma categoria para o evento", variant: "destructive" });
-      setCurrentStep(1);
+    if (!validateStepTwo()) {
+      setCurrentStep(2);
       return;
     }
 
@@ -216,7 +303,7 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent ref={contentRef} className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">Criar Novo Evento</DialogTitle>
         </DialogHeader>
@@ -226,7 +313,7 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
           {steps.map((step, index) => (
             <div key={step.id} className="flex items-center flex-1">
               <button
-                onClick={() => setCurrentStep(step.id)}
+                onClick={() => goToStep(step.id)}
                 className={`flex items-center gap-2 flex-1 p-3 rounded-xl transition-colors ${
                   currentStep === step.id
                     ? "bg-primary/10 text-primary"
@@ -260,27 +347,36 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
           <div className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="event-title" className="text-sm font-semibold">
-                Nome do Evento
+                Nome do Evento <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="event-title"
                 value={formData.title}
                 onChange={handleInputChange}
                 placeholder="Ex: Festival de Verão 2025"
+                className={errorClass(errors.title)}
+                aria-invalid={errors.title ? true : undefined}
+                aria-describedby={describedBy("event-title", errors.title)}
               />
+              <FieldError id="event-title" message={errors.title} />
             </div>
 
             {/* Categoria */}
             <div className="space-y-2">
-              <Label className="text-sm font-semibold">
+              <Label htmlFor="event-category" className="text-sm font-semibold">
                 <Tag className="h-4 w-4 inline mr-1" />
                 Categoria <span className="text-destructive">*</span>
               </Label>
               <Select
                 value={formData.category}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
+                onValueChange={(value) => setEventField("category", value)}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  id="event-category"
+                  className={errorClass(errors.category, ERROR_SELECT_CLASS)}
+                  aria-invalid={errors.category ? true : undefined}
+                  aria-describedby={describedBy("event-category", errors.category)}
+                >
                   <SelectValue placeholder="Selecione uma categoria..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -291,44 +387,57 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
                   ))}
                 </SelectContent>
               </Select>
+              <FieldError id="event-category" message={errors.category} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="event-date" className="text-sm font-semibold">
-                  Data
+                  Data <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="event-date"
                   type="date"
                   value={formData.date}
                   onChange={handleInputChange}
+                  className={errorClass(errors.date)}
+                  aria-invalid={errors.date ? true : undefined}
+                  aria-describedby={describedBy("event-date", errors.date)}
                 />
+                <FieldError id="event-date" message={errors.date} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="event-time" className="text-sm font-semibold">
-                  Horário
+                  Horário <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="event-time"
                   type="time"
                   value={formData.time}
                   onChange={handleInputChange}
+                  className={errorClass(errors.time)}
+                  aria-invalid={errors.time ? true : undefined}
+                  aria-describedby={describedBy("event-time", errors.time)}
                 />
+                <FieldError id="event-time" message={errors.time} />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="event-location" className="text-sm font-semibold">
                 <MapPin className="h-4 w-4 inline mr-1" />
-                Local
+                Local <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="event-location"
                 value={formData.location}
                 onChange={handleInputChange}
                 placeholder="Ex: Parque Ibirapuera, São Paulo"
+                className={errorClass(errors.location)}
+                aria-invalid={errors.location ? true : undefined}
+                aria-describedby={describedBy("event-location", errors.location)}
               />
+              <FieldError id="event-location" message={errors.location} />
             </div>
 
             <div className="space-y-2">
@@ -392,7 +501,7 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
             <Button
               variant="gradient"
               className="w-full"
-              onClick={() => setCurrentStep(2)}
+              onClick={() => goToStep(2)}
             >
               Próximo: Ingressos
               <ChevronRight className="h-4 w-4 ml-1" />
@@ -408,48 +517,83 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
             </p>
 
             <div className="space-y-3">
-              {batches.map((batch) => (
-                <div
-                  key={batch.id}
-                  className="bg-secondary rounded-xl p-4 space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <Input
-                      value={batch.name}
-                      onChange={(e) => updateBatch(batch.id, "name", e.target.value)}
-                      className="font-semibold bg-transparent border-none p-0 h-auto text-base focus-visible:ring-0"
-                    />
-                    {batches.length > 1 && (
-                      <button
-                        onClick={() => removeBatch(batch.id)}
-                        className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+              {batches.map((batch) => {
+                const rowErrors = batchErrors[batch.id] ?? {};
+                const hasRowErrors = Object.keys(rowErrors).length > 0;
+                const nameId = `batch-${batch.id}-name`;
+                const priceId = `batch-${batch.id}-price`;
+                const quantityId = `batch-${batch.id}-quantity`;
+                return (
+                  <div
+                    key={batch.id}
+                    className={cn(
+                      "bg-secondary rounded-xl p-4 space-y-3 border border-transparent",
+                      hasRowErrors && "border-destructive/60"
                     )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Preço (R$)</Label>
-                      <Input
-                        type="number"
-                        placeholder="0,00"
-                        value={batch.price}
-                        onChange={(e) => updateBatch(batch.id, "price", e.target.value)}
-                      />
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <Input
+                          id={nameId}
+                          value={batch.name}
+                          onChange={(e) => updateBatch(batch.id, "name", e.target.value)}
+                          aria-label="Nome do lote"
+                          className={cn(
+                            "font-semibold bg-transparent border-none p-0 h-auto text-base focus-visible:ring-0",
+                            rowErrors.name && `${errorClass(rowErrors.name)} border-solid bg-background px-2 py-1.5 focus-visible:ring-1`
+                          )}
+                          aria-invalid={rowErrors.name ? true : undefined}
+                          aria-describedby={describedBy(nameId, rowErrors.name)}
+                        />
+                        <FieldError id={nameId} message={rowErrors.name} />
+                      </div>
+                      {batches.length > 1 && (
+                        <button
+                          onClick={() => removeBatch(batch.id)}
+                          aria-label={`Remover ${batch.name || "lote"}`}
+                          className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Quantidade</Label>
-                      <Input
-                        type="number"
-                        placeholder="100"
-                        value={batch.quantity}
-                        onChange={(e) => updateBatch(batch.id, "quantity", e.target.value)}
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor={priceId} className="text-xs text-muted-foreground">Preço (R$)</Label>
+                        <Input
+                          id={priceId}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0,00"
+                          value={batch.price}
+                          onChange={(e) => updateBatch(batch.id, "price", e.target.value)}
+                          className={errorClass(rowErrors.price)}
+                          aria-invalid={rowErrors.price ? true : undefined}
+                          aria-describedby={describedBy(priceId, rowErrors.price)}
+                        />
+                        <FieldError id={priceId} message={rowErrors.price} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor={quantityId} className="text-xs text-muted-foreground">Quantidade</Label>
+                        <Input
+                          id={quantityId}
+                          type="number"
+                          min="1"
+                          step="1"
+                          placeholder="100"
+                          value={batch.quantity}
+                          onChange={(e) => updateBatch(batch.id, "quantity", e.target.value)}
+                          className={errorClass(rowErrors.quantity)}
+                          aria-invalid={rowErrors.quantity ? true : undefined}
+                          aria-describedby={describedBy(quantityId, rowErrors.quantity)}
+                        />
+                        <FieldError id={quantityId} message={rowErrors.quantity} />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <Button
@@ -472,7 +616,7 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
               <Button
                 variant="gradient"
                 className="flex-1"
-                onClick={() => setCurrentStep(3)}
+                onClick={() => goToStep(3)}
               >
                 Próximo: Taxas
                 <ChevronRight className="h-4 w-4 ml-1" />
