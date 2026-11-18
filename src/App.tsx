@@ -34,6 +34,7 @@ const AppContent = () => {
         <Route path="/tickets" element={<MyTickets />} />
         <Route path="/meus-ingressos" element={<Navigate to="/tickets" replace />} />
         <Route path="/purchase-success" element={<PurchaseSuccess />} />
+        <Route path="/obrigado" element={<PurchaseSuccess />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/update-password" element={<UpdatePassword />} />

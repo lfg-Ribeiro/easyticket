@@ -75,7 +75,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
   });
 
   const subtotal = event.price * quantity;
-  const serviceFee = subtotal * 0.05;
+  const serviceFee = Math.max(subtotal * 0.05, 2.5);
   const total = subtotal + serviceFee;
 
   const formatCurrency = (value: number) =>
@@ -152,6 +152,8 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
     });
     if (pmtId || pixPaymentId) params.set("paymentId", pmtId || pixPaymentId);
     if (ordId || pixOrderId) params.set("orderId", ordId || pixOrderId);
+    params.set("total", total.toFixed(2));
+    if (event.activeBatchName) params.set("batch", event.activeBatchName);
     onOpenChange(false);
     navigate(`/purchase-success?${params.toString()}`);
   };

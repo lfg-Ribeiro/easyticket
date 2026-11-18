@@ -145,6 +145,8 @@ export function CheckoutPanel({ event }: CheckoutPanelProps) {
     if (pmtId || pixPaymentId) params.set("paymentId", pmtId || pixPaymentId);
     if (ordId || pixOrderId) params.set("orderId", ordId || pixOrderId);
     if (qrCode) params.set("qrCode", qrCode);
+    params.set("total", total.toFixed(2));
+    if (event.activeBatchName) params.set("batch", event.activeBatchName);
     navigate(`/purchase-success?${params.toString()}`);
   };
 
