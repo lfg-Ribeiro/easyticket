@@ -351,11 +351,13 @@ export type Database = {
     }
     Functions: {
       activate_batch: { Args: { p_batch_id: string }; Returns: Json }
+      can_issue_courtesy: { Args: { _event_id: string }; Returns: boolean }
       cleanup_expired_orders: { Args: never; Returns: Json }
       consume_batch_tickets: {
         Args: { p_batch_id: string; p_quantity: number }
         Returns: Json
       }
+      generate_ticket_qr: { Args: { p_index?: number }; Returns: string }
       get_sales_by_day: {
         Args: { end_date: string; start_date: string }
         Returns: {
@@ -379,7 +381,22 @@ export type Database = {
         }
         Returns: boolean
       }
+      insert_courtesy_tickets: {
+        Args: {
+          p_event_id: string
+          p_guest_cpf: string
+          p_guest_email: string
+          p_guest_name: string
+          p_quantity: number
+          p_type: string
+        }
+        Returns: Json
+      }
       is_event_organizer: { Args: { _event_id: string }; Returns: boolean }
+      is_event_producer: { Args: { _event_id: string }; Returns: boolean }
+      is_platform_admin: { Args: never; Returns: boolean }
+      is_platform_owner: { Args: never; Returns: boolean }
+      is_valid_cpf: { Args: { p_cpf: string }; Returns: boolean }
       issue_admin_courtesy: {
         Args: {
           p_event_id: string
@@ -408,6 +425,11 @@ export type Database = {
           published: boolean
           title: string
         }[]
+      }
+      platform_owner_emails: { Args: never; Returns: string[] }
+      resolve_courtesy_holder: {
+        Args: { p_cpf: string; p_email: string }
+        Returns: string
       }
       transfer_ticket: {
         Args: { p_new_cpf: string; p_ticket_id: string }
