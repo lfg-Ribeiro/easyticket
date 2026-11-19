@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Calendar, Clock, MapPin, Send, X } from "lucide-react";
+import { Calendar, Clock, Gift, MapPin, Send, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,6 +107,12 @@ export function TicketDetailModal({ ticket, open, onOpenChange, onTransferred }:
               <span className={cn("w-2 h-2 rounded-full", status.dotClass)} />
               {status.label}
             </span>
+            {ticket.isComplimentary && (
+              <span className="ml-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+                <Gift className="h-3 w-3" aria-hidden="true" />
+                Cortesia
+              </span>
+            )}
           </div>
 
           {/* QR Code */}

@@ -1,4 +1,4 @@
-import { QrCode, Calendar, MapPin, Clock, Scissors, ChevronRight } from "lucide-react";
+import { QrCode, Calendar, MapPin, Clock, Scissors, ChevronRight, Gift } from "lucide-react";
 import { Ticket } from "@/types/event";
 import { cn, formatEventDate } from "@/lib/utils";
 
@@ -84,9 +84,17 @@ export function TicketCard({ ticket, className }: TicketCardProps) {
         </div>
 
         <div className="flex items-center justify-between mt-2">
-          <p className="text-xs text-muted-foreground">
-            {ticket.quantity} ingresso{ticket.quantity > 1 ? "s" : ""}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground">
+              {ticket.quantity} ingresso{ticket.quantity > 1 ? "s" : ""}
+            </p>
+            {ticket.isComplimentary && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                <Gift className="h-3 w-3" aria-hidden="true" />
+                Cortesia
+              </span>
+            )}
+          </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
         </div>
       </div>

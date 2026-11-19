@@ -108,8 +108,12 @@ serve(async (req) => {
       );
     }
 
+    // Cortesias (is_complimentary) não têm pedido (order_id nulo): não há pagamento a conferir.
+    // Ingressos pagos continuam exigindo pedido confirmado.
+    const isComplimentary = (ticket as any).is_complimentary === true;
+
     // Check if payment is confirmed
-    const orderPaymentStatus = (ticket as any).orders?.payment_status;
+    const orderPaymentStatus = isComplimentary ? undefined : (ticket as any).orders?.payment_status;
     if (orderPaymentStatus && orderPaymentStatus !== 'confirmed' && orderPaymentStatus !== 'paid') {
       return new Response(
         JSON.stringify({
@@ -166,6 +170,7 @@ serve(async (req) => {
           holder_name: ticket.holder_name,
           holder_email: ticket.holder_email,
           event_title: ticket.events?.title,
+          is_complimentary: isComplimentary,
         },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

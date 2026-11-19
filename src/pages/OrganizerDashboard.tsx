@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/organizer/MetricCard";
 import { SalesChart } from "@/components/organizer/SalesChart";
 import { ParticipantsTable } from "@/components/organizer/ParticipantsTable";
+import { CourtesySection } from "@/components/organizer/CourtesySection";
 import { CreateEventForm } from "@/components/organizer/CreateEventForm";
 import { EventListItem } from "@/components/organizer/EventListItem";
 import { EditEventForm } from "@/components/organizer/EditEventForm";
@@ -283,6 +284,9 @@ export default function OrganizerDashboard() {
         <section>
           <ParticipantsTable events={myEvents} />
         </section>
+
+        {/* Cortesias (Emitir Cortesia / Cortesia Master) — nunca entram em vendas ou receita */}
+        <CourtesySection events={myEvents} />
 
         {/* My Events */}
         <section>

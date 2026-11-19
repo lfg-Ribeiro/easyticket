@@ -362,6 +362,58 @@ export function updateBatchFieldError(
 }
 
 /* -------------------------------------------------------------------------- */
+/* Cortesias                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export const COURTESY_MAX_QUANTITY = 20;
+
+/** Máscara 000.000.000-00 */
+export function formatCpf(value: string) {
+  const digits = onlyDigits(value).slice(0, 11);
+  return digits
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
+export function validateCourtesyQuantity(value: string): string | undefined {
+  if (value.trim() === "") return "Informe a quantidade";
+  const quantity = Number(value);
+  if (!Number.isFinite(quantity) || !Number.isInteger(quantity)) return "Use um número inteiro";
+  if (quantity < 1) return "A quantidade mínima é 1";
+  if (quantity > COURTESY_MAX_QUANTITY) return `A quantidade máxima é ${COURTESY_MAX_QUANTITY}`;
+  return undefined;
+}
+
+export type CourtesyField = "event" | "name" | "email" | "cpf" | "quantity";
+
+export interface CourtesyValues {
+  eventId: string;
+  name: string;
+  email: string;
+  cpf: string;
+  quantity: string;
+}
+
+export const courtesyValidators: Record<CourtesyField, (values: CourtesyValues) => string | undefined> = {
+  event: (v) => (v.eventId ? undefined : "Escolha o evento da cortesia"),
+  name: (v) => validateFullName(v.name),
+  email: (v) => validateEmail(v.email),
+  cpf: (v) => validateCpf(v.cpf),
+  quantity: (v) => validateCourtesyQuantity(v.quantity),
+};
+
+export function validateCourtesy(values: CourtesyValues): FieldErrors<CourtesyField> {
+  return compact({
+    event: courtesyValidators.event(values),
+    name: courtesyValidators.name(values),
+    email: courtesyValidators.email(values),
+    cpf: courtesyValidators.cpf(values),
+    quantity: courtesyValidators.quantity(values),
+  });
+}
+
+/* -------------------------------------------------------------------------- */
 /* Foco no primeiro campo inválido                                             */
 /* -------------------------------------------------------------------------- */
 

@@ -25,6 +25,8 @@ export interface Ticket {
   purchaseDate: string;
   qrCode: string;
   status: 'valid' | 'used' | 'expired';
+  /** Ingresso de cortesia (sem pedido): exibe o selo "Cortesia". */
+  isComplimentary?: boolean;
 }
 
 export interface TicketType {

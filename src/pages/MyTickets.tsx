@@ -28,7 +28,7 @@ export default function MyTickets() {
       .from("tickets")
       .select(
         `
-          id, qr_code, check_in_status, holder_name, created_at,
+          id, qr_code, check_in_status, holder_name, created_at, is_complimentary,
           order:orders!tickets_order_id_fkey (quantity, total_amount, payment_status),
           event:events!tickets_event_id_fkey (
             id, title, description, event_date, event_time,
@@ -43,10 +43,11 @@ export default function MyTickets() {
 
     if (data) {
       // Filter out tickets with pending/expired payments
-      // Note: transferred tickets may have null order (RLS) — treat as valid
+      // Note: transferred tickets may have null order (RLS) — treat as valid.
+      // Cortesias não têm pedido (order_id nulo) e também são sempre válidas.
       const paidData = data.filter((t: any) => {
         const paymentStatus = t.order?.payment_status;
-        if (!t.order) return true; // transferred ticket, order not visible
+        if (!t.order) return true; // cortesia ou ingresso transferido, pedido não visível
         return paymentStatus === "confirmed" || paymentStatus === "paid";
       });
       const mapped: TicketType[] = paidData.map((t: any) => ({
@@ -72,6 +73,7 @@ export default function MyTickets() {
         totalPrice: t.order?.total_amount || 0,
         purchaseDate: t.created_at,
         qrCode: t.qr_code,
+        isComplimentary: t.is_complimentary === true,
         status:
           t.check_in_status === "valid"
             ? ("valid" as const)

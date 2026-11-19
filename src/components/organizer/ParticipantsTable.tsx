@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { ParticipantsTableSkeleton } from "@/components/organizer/OrganizerSkeletons";
+import { excludeCourtesies } from "@/lib/courtesy";
 
 interface Participant {
   id: string;
@@ -37,12 +38,14 @@ export function ParticipantsTable({ events = [] }: ParticipantsTableProps) {
           supabase
             .from("tickets")
             .select("*")
+            // Participantes = compradores. Cortesias ficam na seção "Cortesias".
+            .eq("is_complimentary", false)
             .order("created_at", { ascending: false }),
           supabase.from("events").select("id, title"),
           supabase.from("ticket_batches").select("id, name"),
         ]);
 
-        const tickets = ticketsRes.data || [];
+        const tickets = excludeCourtesies(ticketsRes.data || []);
         const eventsList = eventsRes.data || [];
         const batchesList = batchesRes.data || [];
 

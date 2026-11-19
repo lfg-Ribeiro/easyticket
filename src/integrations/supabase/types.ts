@@ -247,13 +247,18 @@ export type Database = {
           batch_id: string | null
           check_in_status: string
           checked_in_at: string | null
+          courtesy_type: string | null
           created_at: string
           event_id: string
+          guest_cpf: string | null
+          guest_email: string | null
+          guest_name: string | null
           holder_cpf: string | null
           holder_email: string
           holder_name: string
           id: string
-          order_id: string
+          is_complimentary: boolean
+          order_id: string | null
           qr_code: string
           user_id: string | null
         }
@@ -261,13 +266,18 @@ export type Database = {
           batch_id?: string | null
           check_in_status?: string
           checked_in_at?: string | null
+          courtesy_type?: string | null
           created_at?: string
           event_id: string
+          guest_cpf?: string | null
+          guest_email?: string | null
+          guest_name?: string | null
           holder_cpf?: string | null
           holder_email: string
           holder_name: string
           id?: string
-          order_id: string
+          is_complimentary?: boolean
+          order_id?: string | null
           qr_code: string
           user_id?: string | null
         }
@@ -275,13 +285,18 @@ export type Database = {
           batch_id?: string | null
           check_in_status?: string
           checked_in_at?: string | null
+          courtesy_type?: string | null
           created_at?: string
           event_id?: string
+          guest_cpf?: string | null
+          guest_email?: string | null
+          guest_name?: string | null
           holder_cpf?: string | null
           holder_email?: string
           holder_name?: string
           id?: string
-          order_id?: string
+          is_complimentary?: boolean
+          order_id?: string | null
           qr_code?: string
           user_id?: string | null
         }
@@ -365,6 +380,35 @@ export type Database = {
         Returns: boolean
       }
       is_event_organizer: { Args: { _event_id: string }; Returns: boolean }
+      issue_admin_courtesy: {
+        Args: {
+          p_event_id: string
+          p_guest_cpf: string
+          p_guest_email: string
+          p_guest_name: string
+          p_quantity?: number
+        }
+        Returns: Json
+      }
+      issue_organizer_courtesy: {
+        Args: {
+          p_event_id: string
+          p_guest_cpf: string
+          p_guest_email: string
+          p_guest_name: string
+          p_quantity?: number
+        }
+        Returns: Json
+      }
+      list_admin_courtesy_events: {
+        Args: never
+        Returns: {
+          event_date: string
+          id: string
+          published: boolean
+          title: string
+        }[]
+      }
       transfer_ticket: {
         Args: { p_new_cpf: string; p_ticket_id: string }
         Returns: Json

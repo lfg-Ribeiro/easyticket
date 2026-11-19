@@ -4,6 +4,9 @@ import {
   isValidCpf,
   isValidEmail,
   updateBatchFieldError,
+  formatCpf,
+  validateCourtesy,
+  validateCourtesyQuantity,
   validateBatch,
   validateBatchRows,
   validateBuyer,
@@ -161,5 +164,37 @@ describe("evento e lotes", () => {
     expect(updateBatchFieldError(afterPrice, "b", "quantity", undefined)).toEqual({});
     // campo que não tinha erro não é afetado
     expect(updateBatchFieldError(prev, "b", "name", "novo")).toBe(prev);
+  });
+});
+
+describe("cortesias", () => {
+  it("quantidade: inteiro entre 1 e 20", () => {
+    expect(validateCourtesyQuantity("")).toBe("Informe a quantidade");
+    expect(validateCourtesyQuantity("0")).toBe("A quantidade mínima é 1");
+    expect(validateCourtesyQuantity("21")).toBe("A quantidade máxima é 20");
+    expect(validateCourtesyQuantity("2.5")).toBe("Use um número inteiro");
+    expect(validateCourtesyQuantity("1")).toBeUndefined();
+    expect(validateCourtesyQuantity("20")).toBeUndefined();
+  });
+
+  it("formulário exige evento, nome e sobrenome, e-mail, CPF válido e quantidade", () => {
+    expect(Object.keys(validateCourtesy({ eventId: "", name: "", email: "", cpf: "", quantity: "" }))).toEqual([
+      "event",
+      "name",
+      "email",
+      "cpf",
+      "quantity",
+    ]);
+    expect(
+      validateCourtesy({ eventId: "e1", name: "Ana Souza", email: "ana@email.com", cpf: "529.982.247-25", quantity: "2" }),
+    ).toEqual({});
+    expect(
+      validateCourtesy({ eventId: "e1", name: "Ana Souza", email: "ana@email.com", cpf: "111.111.111-11", quantity: "2" }).cpf,
+    ).toBe("CPF inválido. Confira os números digitados");
+  });
+
+  it("máscara de CPF", () => {
+    expect(formatCpf("52998224725")).toBe("529.982.247-25");
+    expect(formatCpf("529")).toBe("529");
   });
 });
