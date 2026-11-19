@@ -15,41 +15,39 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Not authenticated" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Not authenticated" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Verify user is authenticated
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const supabaseUser = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseUser.auth.getUser();
     if (authError || !user) {
       console.error("❌ [VALIDATE] Auth failed:", authError);
-      return new Response(
-        JSON.stringify({ error: "Invalid authentication" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Invalid authentication" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log("🔍 [VALIDATE] User:", user.email);
 
     const { qr_code, event_id: expectedEventId } = await req.json();
     if (!qr_code) {
-      return new Response(
-        JSON.stringify({ error: "QR code is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "QR code is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log("🔍 [VALIDATE] Scanning qr_code:", qr_code);
@@ -57,7 +55,8 @@ serve(async (req) => {
     // Find ticket by QR code using admin client (bypasses RLS)
     const { data: ticket, error: ticketError } = await supabaseAdmin
       .from("tickets")
-      .select(`
+      .select(
+        `
         *,
         events:event_id (
           id,
@@ -69,7 +68,8 @@ serve(async (req) => {
           buyer_email,
           payment_status
         )
-      `)
+      `,
+      )
       .eq("qr_code", qr_code)
       .maybeSingle();
 
@@ -82,30 +82,37 @@ serve(async (req) => {
           message: "Ingresso Inválido",
           description: "Este QR Code não corresponde a nenhum ingresso.",
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     // Only admins, validators and the master account may validate (producers are read-only)
     const isSuperAdmin = user.email === "lribeiro@easyticket.com";
     const { data: staffRoles } = await supabaseAdmin
-      .from("user_roles").select("role").eq("user_id", user.id).in("role", ["admin", "validator"]);
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .in("role", ["admin", "validator"]);
     const isStaff = (staffRoles?.length ?? 0) > 0;
 
     const body_event_id = expectedEventId;
     if (isStaff && body_event_id && ticket.event_id !== body_event_id) {
       return new Response(
-        JSON.stringify({ status: "invalid", message: "Evento Incorreto", description: "Este ingresso pertence a outro evento." }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          status: "invalid",
+          message: "Evento Incorreto",
+          description: "Este ingresso pertence a outro evento.",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     if (!isSuperAdmin && !isStaff) {
       console.error("❌ [VALIDATE] Not authorized. User:", user.id, "Organizer:", ticket.events?.organizer_id);
-      return new Response(
-        JSON.stringify({ error: "Not authorized for this event" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Not authorized for this event" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Cortesias (is_complimentary) não têm pedido (order_id nulo): não há pagamento a conferir.
@@ -114,14 +121,14 @@ serve(async (req) => {
 
     // Check if payment is confirmed
     const orderPaymentStatus = isComplimentary ? undefined : (ticket as any).orders?.payment_status;
-    if (orderPaymentStatus && orderPaymentStatus !== 'confirmed' && orderPaymentStatus !== 'paid') {
+    if (orderPaymentStatus && orderPaymentStatus !== "confirmed" && orderPaymentStatus !== "paid") {
       return new Response(
         JSON.stringify({
           status: "invalid",
           message: "Pagamento Pendente",
           description: "Este ingresso está vinculado a um pedido com pagamento não confirmado.",
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -138,7 +145,7 @@ serve(async (req) => {
             event_title: ticket.events?.title,
           },
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -153,10 +160,10 @@ serve(async (req) => {
 
     if (updateError) {
       console.error("❌ [VALIDATE] Update error:", updateError);
-      return new Response(
-        JSON.stringify({ error: "Failed to update ticket" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Failed to update ticket" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log("✅ [VALIDATE] Check-in success for ticket:", ticket.id);
@@ -173,13 +180,13 @@ serve(async (req) => {
           is_complimentary: isComplimentary,
         },
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("❌ [VALIDATE] Error:", err);
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
