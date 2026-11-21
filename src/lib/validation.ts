@@ -414,6 +414,63 @@ export function validateCourtesy(values: CourtesyValues): FieldErrors<CourtesyFi
 }
 
 /* -------------------------------------------------------------------------- */
+/* Comissionados / Atléticas                                                   */
+/* -------------------------------------------------------------------------- */
+
+export type AffiliateField = "name" | "refCode" | "commission";
+
+export interface AffiliateValues {
+  name: string;
+  refCode: string;
+  commission: string;
+}
+
+export function validateAffiliateName(value: string): string | undefined {
+  const name = value.trim();
+  if (!name) return "Informe o nome da atlética ou do comissionado";
+  if (name.length < 2) return "O nome deve ter pelo menos 2 caracteres";
+  if (name.length > 100) return "Nome muito longo (máx. 100 caracteres)";
+  return undefined;
+}
+
+/** Código do link: minúsculas, números e "_" (2 a 64 caracteres). */
+export function validateRefCode(value: string): string | undefined {
+  const code = value.trim();
+  if (!code) return "Informe o código do link";
+  if (!/^[a-z0-9_]+$/.test(code)) return "Use apenas letras minúsculas, números e _ (sem acentos ou espaços)";
+  if (code.length < 2) return "O código deve ter pelo menos 2 caracteres";
+  if (code.length > 64) return "Código muito longo (máx. 64 caracteres)";
+  return undefined;
+}
+
+/** Comissão opcional: vazio = 0%. Aceita vírgula ou ponto, de 0 a 100 com até 2 casas. */
+export function validateCommissionPercent(value: string): string | undefined {
+  const text = value.trim().replace(",", ".");
+  if (text === "") return undefined;
+  if (!/^\d+(\.\d{1,2})?$/.test(text)) return "Informe um percentual válido, como 10 ou 7,5";
+  const percent = Number(text);
+  if (percent < 0 || percent > 100) return "A comissão deve ficar entre 0% e 100%";
+  return undefined;
+}
+
+export const affiliateValidators: Record<AffiliateField, (values: AffiliateValues) => string | undefined> = {
+  name: (v) => validateAffiliateName(v.name),
+  refCode: (v) => validateRefCode(v.refCode),
+  commission: (v) => validateCommissionPercent(v.commission),
+};
+
+export function validateAffiliate(values: AffiliateValues): FieldErrors<AffiliateField> {
+  return compact({
+    name: affiliateValidators.name(values),
+    refCode: affiliateValidators.refCode(values),
+    commission: affiliateValidators.commission(values),
+  });
+}
+
+/** "7,5" -> 7.5; vazio -> 0 */
+export const parseCommissionPercent = (value: string) => Number(value.trim().replace(",", ".") || "0");
+
+/* -------------------------------------------------------------------------- */
 /* Foco no primeiro campo inválido                                             */
 /* -------------------------------------------------------------------------- */
 

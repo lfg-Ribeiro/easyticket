@@ -7,6 +7,10 @@ import {
   formatCpf,
   validateCourtesy,
   validateCourtesyQuantity,
+  parseCommissionPercent,
+  validateAffiliate,
+  validateCommissionPercent,
+  validateRefCode,
   validateBatch,
   validateBatchRows,
   validateBuyer,
@@ -196,5 +200,35 @@ describe("cortesias", () => {
   it("máscara de CPF", () => {
     expect(formatCpf("52998224725")).toBe("529.982.247-25");
     expect(formatCpf("529")).toBe("529");
+  });
+});
+
+describe("comissionados / atléticas", () => {
+  it("código do link: minúsculas, números e _ (2 a 64)", () => {
+    expect(validateRefCode("")).toBe("Informe o código do link");
+    expect(validateRefCode("Atletica")).toMatch(/apenas letras minúsculas/);
+    expect(validateRefCode("atlética")).toMatch(/apenas letras minúsculas/);
+    expect(validateRefCode("a b")).toMatch(/apenas letras minúsculas/);
+    expect(validateRefCode("a")).toBe("O código deve ter pelo menos 2 caracteres");
+    expect(validateRefCode("a".repeat(65))).toBe("Código muito longo (máx. 64 caracteres)");
+    expect(validateRefCode("atletica_engenharia")).toBeUndefined();
+  });
+
+  it("comissão: opcional, de 0 a 100, vírgula ou ponto, até 2 casas", () => {
+    expect(validateCommissionPercent("")).toBeUndefined();
+    expect(validateCommissionPercent("0")).toBeUndefined();
+    expect(validateCommissionPercent("7,5")).toBeUndefined();
+    expect(validateCommissionPercent("100")).toBeUndefined();
+    expect(validateCommissionPercent("100,01")).toBe("A comissão deve ficar entre 0% e 100%");
+    expect(validateCommissionPercent("-5")).toMatch(/percentual válido/);
+    expect(validateCommissionPercent("abc")).toMatch(/percentual válido/);
+    expect(validateCommissionPercent("10,123")).toMatch(/percentual válido/);
+    expect(parseCommissionPercent("7,5")).toBe(7.5);
+    expect(parseCommissionPercent("")).toBe(0);
+  });
+
+  it("formulário exige nome e código; comissão é opcional", () => {
+    expect(Object.keys(validateAffiliate({ name: "", refCode: "", commission: "" }))).toEqual(["name", "refCode"]);
+    expect(validateAffiliate({ name: "Atlética Engenharia", refCode: "atletica_engenharia", commission: "" })).toEqual({});
   });
 });

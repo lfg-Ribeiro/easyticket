@@ -4,9 +4,10 @@ export type Row = Record<string, unknown>;
 
 export interface RecordedQuery {
   table: string;
-  op: "select" | "delete";
+  op: "select" | "delete" | "insert";
   columns?: string;
   filters: [string, unknown][];
+  payload?: Row;
 }
 
 export interface MockState {
@@ -17,6 +18,8 @@ export interface MockState {
   queries: RecordedQuery[];
   /** true: ignora .eq() (simula uma consulta/RLS que "vazaria" linhas) */
   ignoreFilters?: boolean;
+  /** Simula erro de banco num INSERT (ex.: { code: "23505" }); null/undefined = sucesso. */
+  onInsert?: (table: string, row: Row) => { code?: string; message?: string } | null | undefined;
 }
 
 export const createMockState = (): MockState => ({
@@ -32,6 +35,7 @@ export function createSupabaseMock(state: MockState) {
     const nullFilters: string[] = [];
     let op: RecordedQuery["op"] = "select";
     let columns: string | undefined;
+    let payload: Row | undefined;
 
     const rows = () => {
       const all = state.db[table] ?? [];
@@ -43,8 +47,17 @@ export function createSupabaseMock(state: MockState) {
       );
     };
 
-    const run = () => {
-      state.queries.push({ table, op, columns, filters: [...filters] });
+    type Result = { data: Row[]; error: { code?: string; message?: string } | null };
+
+    const run = (): Result => {
+      state.queries.push({ table, op, columns, filters: [...filters], payload });
+      if (op === "insert") {
+        const failure = state.onInsert?.(table, payload as Row);
+        if (failure) return { data: [], error: failure };
+        const row: Row = { id: `${table}-${(state.db[table] ?? []).length + 1}`, created_at: new Date().toISOString(), ...payload };
+        state.db[table] = [...(state.db[table] ?? []), row];
+        return { data: [row], error: null };
+      }
       if (op === "delete") {
         const removed = rows();
         state.db[table] = (state.db[table] ?? []).filter((row) => !removed.includes(row));
@@ -56,6 +69,11 @@ export function createSupabaseMock(state: MockState) {
     const api: Record<string, unknown> = {
       select: (cols?: string) => {
         if (op === "select") columns = cols;
+        return api;
+      },
+      insert: (row: Row) => {
+        op = "insert";
+        payload = row;
         return api;
       },
       delete: () => {
@@ -73,9 +91,15 @@ export function createSupabaseMock(state: MockState) {
       in: () => api,
       order: () => api,
       limit: () => api,
-      maybeSingle: async () => ({ data: run().data[0] ?? null, error: null }),
-      single: async () => ({ data: run().data[0] ?? null, error: null }),
-      then: (resolve: (result: { data: Row[]; error: null }) => void) => resolve(run() as { data: Row[]; error: null }),
+      maybeSingle: async () => {
+        const result = run();
+        return { data: result.data[0] ?? null, error: result.error };
+      },
+      single: async () => {
+        const result = run();
+        return { data: result.data[0] ?? null, error: result.error };
+      },
+      then: (resolve: (result: Result) => void) => resolve(run()),
     };
     return api;
   };

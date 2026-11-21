@@ -13,8 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FieldError } from "@/components/ui/field-error";
 import { BuyerFields } from "@/components/checkout/BuyerFields";
+import { ReferralBadge } from "@/components/checkout/ReferralBadge";
 import { useFieldErrors } from "@/hooks/useFieldErrors";
 import { cn } from "@/lib/utils";
+import { attachOrderReferral } from "@/lib/referral-attach";
 import {
   buyerValidators,
   cardValidators,
@@ -138,6 +140,9 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
     if (error || data?.error) {
       throw new Error(data?.error || "Checkout failed");
     }
+
+    // Grava a indicação (?ref=) no pedido logo após criá-lo, antes do pagamento. Não bloqueia a compra.
+    await attachOrderReferral(data?.order?.id, event.id);
 
     return data;
   };
@@ -379,6 +384,8 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                     </button>
                   </div>
                 </div>
+
+                <ReferralBadge eventId={event.id} />
 
                 {/* Guest Checkout Form */}
                 <BuyerFields idPrefix="d" values={formData} errors={errors} onChange={handleBuyerChange} />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   Calendar,
@@ -15,13 +15,20 @@ import { CheckoutPanel } from "@/components/checkout/CheckoutPanel";
 import { supabase } from "@/integrations/supabase/client";
 import type { Event } from "@/types/event";
 import { EventDetailSkeleton } from "@/components/events/EventDetailSkeleton";
+import { captureReferralFromUrl } from "@/lib/referral";
 
 export default function EventDetail() {
   const { id } = useParams();
+  const { search } = useLocation();
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Guarda ?ref= (ou ?utm_source=) por 7 dias, para sobreviver a um login/cadastro em /auth
+  useEffect(() => {
+    if (id) captureReferralFromUrl(search, id);
+  }, [id, search]);
 
   useEffect(() => {
     // Run cleanup of expired pending orders on page load

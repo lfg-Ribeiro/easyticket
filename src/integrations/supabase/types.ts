@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      event_affiliates: {
+        Row: {
+          commission_percent: number
+          created_at: string
+          event_id: string
+          id: string
+          name: string
+          ref_code: string
+        }
+        Insert: {
+          commission_percent?: number
+          created_at?: string
+          event_id: string
+          id?: string
+          name: string
+          ref_code: string
+        }
+        Update: {
+          commission_percent?: number
+          created_at?: string
+          event_id?: string
+          id?: string
+          name?: string
+          ref_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_affiliates_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_organizers: {
         Row: {
           created_at: string
@@ -115,6 +150,7 @@ export type Database = {
           payment_status: string
           platform_fee: number
           quantity: number
+          referred_by: string | null
           service_fee: number
           subtotal: number
           total_amount: number
@@ -131,6 +167,7 @@ export type Database = {
           payment_status?: string
           platform_fee?: number
           quantity?: number
+          referred_by?: string | null
           service_fee?: number
           subtotal?: number
           total_amount?: number
@@ -147,6 +184,7 @@ export type Database = {
           payment_status?: string
           platform_fee?: number
           quantity?: number
+          referred_by?: string | null
           service_fee?: number
           subtotal?: number
           total_amount?: number
@@ -350,6 +388,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      attach_order_referral: {
+        Args: { p_order_id: string; p_referred_by: string }
+        Returns: boolean
+      }
+      get_affiliate_name: {
+        Args: { p_event_id: string; p_ref_code: string }
+        Returns: string
+      }
       activate_batch: { Args: { p_batch_id: string }; Returns: Json }
       can_issue_courtesy: { Args: { _event_id: string }; Returns: boolean }
       cleanup_expired_orders: { Args: never; Returns: Json }
