@@ -96,7 +96,7 @@ export function TicketDetailModal({ ticket, open, onOpenChange, onTransferred }:
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
           <div className="absolute bottom-3 left-4 right-4">
-            <h2 className="text-lg font-bold text-foreground line-clamp-2">{ticket.event.title}</h2>
+            <h2 className="text-lg font-bold text-foreground line-clamp-2 break-words">{ticket.event.title}</h2>
           </div>
         </div>
 
@@ -145,7 +145,7 @@ export function TicketDetailModal({ ticket, open, onOpenChange, onTransferred }:
           {ticket.status === "valid" && !showTransfer && (
             <Button
               variant="outline"
-              className="w-full"
+              className="w-full min-h-[44px]"
               onClick={() => setShowTransfer(true)}
             >
               <Send className="h-4 w-4 mr-2" />
@@ -157,7 +157,12 @@ export function TicketDetailModal({ ticket, open, onOpenChange, onTransferred }:
             <div className="space-y-3 p-4 border border-border rounded-xl animate-fade-in">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-sm text-foreground">Transferir para</h3>
-                <button onClick={() => setShowTransfer(false)} className="text-muted-foreground hover:text-foreground">
+                <button
+                  type="button"
+                  aria-label="Cancelar transferência"
+                  onClick={() => setShowTransfer(false)}
+                  className="-m-3 flex h-11 w-11 items-center justify-center text-muted-foreground hover:text-foreground"
+                >
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -168,14 +173,15 @@ export function TicketDetailModal({ ticket, open, onOpenChange, onTransferred }:
                   value={transferCpf}
                   onChange={(e) => setTransferCpf(formatCPF(e.target.value))}
                   placeholder="000.000.000-00"
-                  className="mt-1"
+                  className="mt-1 min-h-[44px]"
+                  inputMode="numeric"
                   maxLength={14}
                 />
               </div>
               <Button
                 onClick={handleTransfer}
                 disabled={transferring || transferCpf.replace(/\D/g, "").length !== 11}
-                className="w-full"
+                className="w-full min-h-[44px]"
               >
                 {transferring ? "Transferindo..." : "Confirmar Transferência"}
               </Button>

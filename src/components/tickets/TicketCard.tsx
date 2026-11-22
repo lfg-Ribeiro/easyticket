@@ -50,7 +50,7 @@ export function TicketCard({ ticket, className }: TicketCardProps) {
       <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
         <div>
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-bold text-foreground text-sm leading-tight line-clamp-2 flex-1">
+            <h3 className="font-bold text-foreground text-sm leading-tight line-clamp-2 flex-1 min-w-0 break-words">
               {ticket.event.title}
             </h3>
             <span

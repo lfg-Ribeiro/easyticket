@@ -45,12 +45,12 @@ export function EventCard({ event, className }: EventCardProps) {
           </div>
         </div>
         <div className="p-4">
-          <h3 className="font-bold text-foreground text-lg leading-tight mb-2 line-clamp-1 group-hover:text-primary transition-colors">
+          <h3 className="font-bold text-foreground text-lg leading-tight mb-2 line-clamp-1 break-words group-hover:text-primary transition-colors">
             {event.title}
           </h3>
           <div className="flex items-center gap-1.5 text-muted-foreground text-sm mb-3">
             <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-            <span className="line-clamp-1">{event.venue}, {event.location}</span>
+            <span className="line-clamp-1 min-w-0 break-words">{event.venue}, {event.location}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">A partir de</span>

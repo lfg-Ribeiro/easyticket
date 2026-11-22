@@ -322,10 +322,13 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
+      <DrawerContent className="max-h-[90dvh]">
         <div className="mx-auto w-full max-w-md">
           <DrawerHeader className="text-left relative">
-            <DrawerClose className="absolute right-4 top-4 rounded-full p-2 hover:bg-secondary">
+            <DrawerClose
+              aria-label="Fechar"
+              className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full hover:bg-secondary"
+            >
               <X className="h-5 w-5" />
             </DrawerClose>
             <DrawerTitle className="text-xl">
@@ -333,7 +336,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
             </DrawerTitle>
           </DrawerHeader>
 
-          <div ref={rootRef} className="px-4 pb-6 space-y-5 overflow-y-auto max-h-[70vh]">
+          <div ref={rootRef} className="px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-5 overflow-y-auto overscroll-contain scroll-smooth max-h-[calc(90dvh-6rem)]">
             {step === "processing" ? (
               <div className="text-center py-12 space-y-4">
                 <div className="w-16 h-16 mx-auto rounded-full border-4 border-primary border-t-transparent animate-spin" />
@@ -368,17 +371,21 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                   <span className="font-medium text-foreground">Quantidade</span>
                   <div className="flex items-center gap-4">
                     <button
+                      type="button"
+                      aria-label="Diminuir quantidade"
                       onClick={() => handleQuantityChange(-1)}
                       disabled={quantity <= 1}
-                      className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-50 transition-colors"
+                      className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-50 transition-colors"
                     >
                       <Minus className="h-4 w-4" />
                     </button>
-                    <span className="text-lg font-bold w-6 text-center">{quantity}</span>
+                    <span className="text-lg font-bold min-w-[1.5rem] text-center" aria-live="polite">{quantity}</span>
                     <button
+                      type="button"
+                      aria-label="Aumentar quantidade"
                       onClick={() => handleQuantityChange(1)}
                       disabled={quantity >= maxQuantity}
-                      className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-50 transition-colors"
+                      className="h-11 w-11 min-h-[44px] min-w-[44px] rounded-full border border-border flex items-center justify-center hover:bg-secondary disabled:opacity-50 transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -395,8 +402,10 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                   <h3 className="font-semibold text-foreground">Pagamento</h3>
                   <div className="grid grid-cols-2 gap-3">
                     <button
+                      type="button"
+                      aria-pressed={paymentMethod === "pix"}
                       onClick={() => { setPaymentMethod("pix"); setPixGenerated(false); }}
-                      className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                      className={`min-h-[44px] p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
                         paymentMethod === "pix"
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/50"
@@ -408,8 +417,10 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                       </span>
                     </button>
                     <button
+                      type="button"
+                      aria-pressed={paymentMethod === "card"}
                       onClick={() => setPaymentMethod("card")}
-                      className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                      className={`min-h-[44px] p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
                         paymentMethod === "card"
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/50"
@@ -432,7 +443,9 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                           value={cardData.number}
                           onChange={(e) => handleCardChange("cardNumber", "number", formatCardNumber(e.target.value))}
                           placeholder="0000 0000 0000 0000"
-                          className={cn("mt-1", errorClass(errors.cardNumber))}
+                          className={cn("mt-1 min-h-[44px]", errorClass(errors.cardNumber))}
+                          inputMode="numeric"
+                          autoComplete="cc-number"
                           maxLength={19}
                           aria-invalid={errors.cardNumber ? true : undefined}
                           aria-describedby={describedBy("d-cardNumber", errors.cardNumber)}
@@ -446,7 +459,9 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                           value={cardData.holderName}
                           onChange={(e) => handleCardChange("holderName", "holderName", e.target.value.toUpperCase())}
                           placeholder="NOME COMO NO CARTÃO"
-                          className={cn("mt-1", errorClass(errors.holderName))}
+                          className={cn("mt-1 min-h-[44px]", errorClass(errors.holderName))}
+                          autoCapitalize="characters"
+                          autoComplete="cc-name"
                           aria-invalid={errors.holderName ? true : undefined}
                           aria-describedby={describedBy("d-holderName", errors.holderName)}
                         />
@@ -460,7 +475,9 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                             value={cardData.expiry}
                             onChange={(e) => handleCardChange("expiry", "expiry", formatExpiry(e.target.value))}
                             placeholder="MM/AA"
-                            className={cn("mt-1", errorClass(errors.expiry))}
+                            className={cn("mt-1 min-h-[44px]", errorClass(errors.expiry))}
+                          inputMode="numeric"
+                            autoComplete="cc-exp"
                             maxLength={5}
                             aria-invalid={errors.expiry ? true : undefined}
                             aria-describedby={describedBy("d-expiry", errors.expiry)}
@@ -474,7 +491,9 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                             value={cardData.cvv}
                             onChange={(e) => handleCardChange("cvv", "cvv", e.target.value.replace(/\D/g, "").slice(0, 4))}
                             placeholder="123"
-                            className={cn("mt-1", errorClass(errors.cvv))}
+                            className={cn("mt-1 min-h-[44px]", errorClass(errors.cvv))}
+                          inputMode="numeric"
+                            autoComplete="cc-csc"
                             maxLength={4}
                             type="password"
                             aria-invalid={errors.cvv ? true : undefined}
@@ -493,7 +512,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                         <Button
                           onClick={handleGeneratePix}
                           variant="outline"
-                          className="w-full"
+                          className="w-full min-h-[44px]"
                           disabled={isGeneratingPix}
                         >
                           {isGeneratingPix ? (
@@ -547,7 +566,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                                 onClick={handleRegeneratePix}
                                 variant="outline"
                                 size="sm"
-                                className="w-full"
+                                className="w-full min-h-[44px]"
                               >
                                 <RefreshCw className="h-4 w-4 mr-2" />
                                 Gerar Novo Código
@@ -561,7 +580,7 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
                                   onClick={handleCopyPix}
                                   variant="outline"
                                   size="sm"
-                                  className="w-full"
+                                  className="w-full min-h-[44px]"
                                 >
                                   {copied ? (
                                     <>

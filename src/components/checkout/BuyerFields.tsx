@@ -28,7 +28,7 @@ export function BuyerFields({ idPrefix, values, errors, onChange }: BuyerFieldsP
       name,
       value: values[name],
       onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange(name, e.target.value),
-      className: cn("mt-1", errorClass(errors[name])),
+      className: cn("mt-1 min-h-[44px] md:min-h-10", errorClass(errors[name])),
       "aria-invalid": errors[name] ? (true as const) : undefined,
       "aria-describedby": describedBy(id, errors[name]),
     };
@@ -39,12 +39,12 @@ export function BuyerFields({ idPrefix, values, errors, onChange }: BuyerFieldsP
       <h3 className="font-semibold text-foreground">Seus dados</h3>
       <div>
         <Label htmlFor={`${idPrefix}-name`} className="text-sm">Nome completo</Label>
-        <Input {...field("name")} autoComplete="name" placeholder="Nome e sobrenome" />
+        <Input {...field("name")} autoComplete="name" autoCapitalize="words" inputMode="text" placeholder="Nome e sobrenome" />
         <FieldError id={`${idPrefix}-name`} message={errors.name} />
       </div>
       <div>
         <Label htmlFor={`${idPrefix}-email`} className="text-sm">E-mail</Label>
-        <Input {...field("email")} type="email" autoComplete="email" placeholder="seu@email.com" />
+        <Input {...field("email")} type="email" inputMode="email" autoComplete="email" autoCapitalize="none" placeholder="seu@email.com" />
         <FieldError id={`${idPrefix}-email`} message={errors.email} />
       </div>
       <div>

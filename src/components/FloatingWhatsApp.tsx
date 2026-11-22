@@ -24,8 +24,9 @@ export const FloatingWhatsApp: React.FC = () => {
         // Desktop: posição normal
         "md:bottom-6 md:right-6 md:left-auto",
         // Mobile: sempre acima da MobileNav; em páginas com barra/FABs próprios, sai do caminho
+        // Páginas de evento: acima da MobileNav (4rem + safe-area) + barra de compra (h-20 = 5rem) + 0,75rem de folga
         isEventPage
-          ? "bottom-40 right-4"
+          ? "bottom-[calc(4rem+max(1rem,env(safe-area-inset-bottom))+5rem+0.75rem)] right-4"
           : isOrganizerPage
             ? `${ABOVE_MOBILE_NAV} left-4`
             : `${ABOVE_MOBILE_NAV} right-4`

@@ -120,14 +120,14 @@ export function EventDetailSkeleton() {
       {/* Barra fixa "Comprar agora" (mobile) */}
       <div
         aria-hidden="true"
-        className="fixed bottom-16 left-0 right-0 z-50 border-t border-border bg-background/95 p-4 backdrop-blur-lg md:hidden"
+        className="fixed bottom-[calc(4rem+max(1rem,env(safe-area-inset-bottom)))] left-0 right-0 z-40 flex h-20 items-center border-t border-border bg-background/95 px-4 backdrop-blur-lg md:hidden"
       >
-        <div className="flex items-center justify-between">
+        <div className="flex w-full items-center justify-between">
           <div className="space-y-1.5">
             <Skeleton className="h-3 w-16" />
             <Skeleton className="h-6 w-24" />
           </div>
-          <Skeleton className="h-12 w-36 rounded-xl" />
+          <Skeleton className="h-11 w-36 rounded-xl" />
         </div>
       </div>
     </div>

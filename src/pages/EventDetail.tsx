@@ -15,6 +15,8 @@ import { CheckoutPanel } from "@/components/checkout/CheckoutPanel";
 import { supabase } from "@/integrations/supabase/client";
 import type { Event } from "@/types/event";
 import { EventDetailSkeleton } from "@/components/events/EventDetailSkeleton";
+import { MobilePurchaseBar } from "@/components/events/MobilePurchaseBar";
+import { toast } from "@/hooks/use-toast";
 import { captureReferralFromUrl } from "@/lib/referral";
 
 export default function EventDetail() {
@@ -135,6 +137,9 @@ export default function EventDetail() {
     currency: "BRL",
   }).format(event.price);
 
+  // Sem ingressos disponíveis no lote ativo: a barra mobile mostra "Esgotado" e o checkout não abre
+  const soldOut = event.availableTickets <= 0;
+
   return (
     <MainLayout>
       <div className="relative">
@@ -147,23 +152,31 @@ export default function EventDetail() {
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
         </div>
         <button
+          type="button"
+          aria-label="Voltar"
           onClick={() => navigate(-1)}
-          className="absolute top-4 left-4 md:top-6 md:left-6 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-background transition-colors"
+          className="absolute top-4 left-4 md:top-6 md:left-6 w-11 h-11 md:w-10 md:h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-background transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <button
-          onClick={() => {
-            navigator.clipboard.writeText(window.location.href);
-            alert("Link do evento copiado com sucesso!");
+          type="button"
+          aria-label="Compartilhar evento"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(window.location.href);
+              toast({ title: "Link do evento copiado!" });
+            } catch {
+              toast({ title: "Não foi possível copiar o link", variant: "destructive" });
+            }
           }}
-          className="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-background transition-colors"
+          className="absolute top-4 right-4 md:top-6 md:right-6 w-11 h-11 md:w-10 md:h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-background transition-colors"
         >
           <Share2 className="h-5 w-5" />
         </button>
       </div>
 
-      <div className="container -mt-16 relative z-10 pb-32 md:pb-8">
+      <div className="container -mt-16 relative z-10 pb-36 md:pb-10">
         <div className="hidden md:grid md:grid-cols-5 md:gap-8">
           <div className="md:col-span-3">
             <div className="bg-card rounded-2xl shadow-elevated p-6 md:p-8">
@@ -177,13 +190,13 @@ export default function EventDetail() {
                   </span>
                 )}
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-4">
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-4 break-words">
                 {event.title}
               </h1>
               <div className="grid gap-2.5 mb-6">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4 flex-shrink-0 text-primary/70" />
-                  <span className="capitalize">{formattedDate}</span>
+                  <span className="capitalize min-w-0 break-words">{formattedDate}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="h-4 w-4 flex-shrink-0 text-primary/70" />
@@ -191,7 +204,7 @@ export default function EventDetail() {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-4 w-4 flex-shrink-0 text-primary/70" />
-                  <span>
+                  <span className="min-w-0 break-words">
                     {event.venue}, {event.location}
                   </span>
                 </div>
@@ -206,7 +219,7 @@ export default function EventDetail() {
               </div>
               {event.activeBatchName && (
                 <div className="mb-6 p-3 rounded-xl bg-primary/10 border border-primary/20">
-                  <p className="text-sm font-semibold text-primary">
+                  <p className="text-sm font-semibold text-primary break-words">
                     {event.activeBatchName}
                     {event.showRemainingTickets
                       ? ` — Restam ${event.availableTickets} ingresso${event.availableTickets !== 1 ? "s" : ""}`
@@ -218,7 +231,7 @@ export default function EventDetail() {
                 <h2 className="text-base font-semibold text-foreground mb-2">
                   Sobre o evento
                 </h2>
-                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line break-words">
                   {event.description}
                 </p>
               </div>
@@ -241,13 +254,13 @@ export default function EventDetail() {
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-bold text-foreground mb-4">
+            <h1 className="text-2xl font-bold text-foreground mb-4 break-words">
               {event.title}
             </h1>
             <div className="grid gap-2.5 mb-6">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4 flex-shrink-0 text-primary/70" />
-                <span className="capitalize">{formattedDate}</span>
+                <span className="capitalize min-w-0 break-words">{formattedDate}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4 flex-shrink-0 text-primary/70" />
@@ -255,7 +268,7 @@ export default function EventDetail() {
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4 flex-shrink-0 text-primary/70" />
-                <span>
+                <span className="min-w-0 break-words">
                   {event.venue}, {event.location}
                 </span>
               </div>
@@ -270,7 +283,7 @@ export default function EventDetail() {
             </div>
             {event.activeBatchName && (
               <div className="mb-6 p-3 rounded-xl bg-primary/10 border border-primary/20">
-                <p className="text-sm font-semibold text-primary">
+                <p className="text-sm font-semibold text-primary break-words">
                   {event.activeBatchName}
                   {event.showRemainingTickets
                     ? ` — Restam ${event.availableTickets} ingresso${event.availableTickets !== 1 ? "s" : ""}`
@@ -282,7 +295,7 @@ export default function EventDetail() {
               <h2 className="text-base font-semibold text-foreground mb-2">
                 Sobre o evento
               </h2>
-              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line break-words">
                 {event.description}
               </p>
             </div>
@@ -290,27 +303,16 @@ export default function EventDetail() {
         </div>
       </div>
 
-      <div className="fixed bottom-16 left-0 right-0 p-4 bg-background/95 backdrop-blur-lg border-t border-border z-50 md:hidden">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground">A partir de</p>
-            <p className="text-xl font-bold text-foreground">
-              {formattedPrice}
-            </p>
-          </div>
-          <Button
-            onClick={() => setDrawerOpen(true)}
-            size="lg"
-            variant="gradient"
-          >
-            Comprar agora
-          </Button>
-        </div>
-      </div>
+      <MobilePurchaseBar
+        priceLabel={formattedPrice}
+        batchName={event.activeBatchName}
+        soldOut={soldOut}
+        onBuy={() => setDrawerOpen(true)}
+      />
 
       <CheckoutDrawer
         event={event}
-        open={drawerOpen}
+        open={drawerOpen && !soldOut}
         onOpenChange={setDrawerOpen}
       />
     </MainLayout>

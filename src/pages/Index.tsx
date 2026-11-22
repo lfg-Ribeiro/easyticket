@@ -115,7 +115,7 @@ const Index = () => {
     <MainLayout>
       <div className="container py-6">
         <section className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 break-words">
             Descubra eventos
           </h1>
           <p className="text-muted-foreground text-lg">

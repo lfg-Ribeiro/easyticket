@@ -15,6 +15,11 @@ export default function MyTickets() {
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
+  const openTicket = (ticket: TicketType) => {
+    setSelectedTicket(ticket);
+    setModalOpen(true);
+  };
+
   const fetchTickets = useCallback(async () => {
     if (!user?.email) {
       console.log("[MyTickets] No user email, skipping fetch");
@@ -100,7 +105,7 @@ export default function MyTickets() {
     <MainLayout>
       <div className="container max-w-2xl py-6">
         <section className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2 break-words">
             Meus Ingressos
           </h1>
           <p className="text-muted-foreground">
@@ -121,9 +126,16 @@ export default function MyTickets() {
                   {validTickets.map((ticket) => (
                     <div
                       key={ticket.id}
-                      onClick={() => {
-                        setSelectedTicket(ticket);
-                        setModalOpen(true);
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Abrir ingresso: ${ticket.event.title}`}
+                      className="rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => openTicket(ticket)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openTicket(ticket);
+                        }
                       }}
                     >
                       <TicketCard ticket={ticket} />
@@ -141,9 +153,16 @@ export default function MyTickets() {
                   {pastTickets.map((ticket) => (
                     <div
                       key={ticket.id}
-                      onClick={() => {
-                        setSelectedTicket(ticket);
-                        setModalOpen(true);
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Abrir ingresso: ${ticket.event.title}`}
+                      className="rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => openTicket(ticket)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openTicket(ticket);
+                        }
                       }}
                     >
                       <TicketCard ticket={ticket} />
