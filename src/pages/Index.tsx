@@ -10,8 +10,11 @@ import type { Event } from "@/types/event";
 import { CategoryFilterSkeleton } from "@/components/events/CategoryFilterSkeleton";
 import { EventGridSkeleton } from "@/components/events/EventCardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { HOME_TITLE, HOME_DESCRIPTION } from "@/lib/seo";
 
 const Index = () => {
+  usePageMeta({ title: HOME_TITLE, description: HOME_DESCRIPTION });
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [events, setEvents] = useState<Event[]>([]);

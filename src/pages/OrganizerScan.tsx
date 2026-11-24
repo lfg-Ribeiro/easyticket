@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useScannerAudio } from "@/hooks/useScannerAudio";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { pageTitle } from "@/lib/seo";
 
 type ScanResult = {
   status: "valid" | "used" | "invalid";
@@ -19,6 +21,12 @@ type ScanResult = {
 } | null;
 
 export default function OrganizerScan() {
+  usePageMeta({
+    title: pageTitle("Scanner de Ingressos"),
+    description: "Valide ingressos com QR Code na entrada do evento.",
+    noindex: true,
+  });
+
   const navigate = useNavigate();
   const { user, loading, session } = useAuth();
   const [scanning, setScanning] = useState(false);

@@ -21,6 +21,8 @@ import {
   validateNewPassword,
   validatePasswordConfirmation,
 } from "@/lib/validation";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { pageTitle } from "@/lib/seo";
 
 interface ProfileData {
   full_name: string | null;
@@ -29,6 +31,12 @@ interface ProfileData {
 }
 
 export default function Profile() {
+  usePageMeta({
+    title: pageTitle("Meu Perfil"),
+    description: "Gerencie seus dados e sua conta no EasyTicket.",
+    noindex: true,
+  });
+
   const navigate = useNavigate();
   const { user, signOut, loading } = useAuth();
   const { toast } = useToast();

@@ -14,6 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { isPaymentConfirmed } from "@/lib/payment-status";
 import { buildEventUrl, formatOrderRef, readPurchaseParams } from "@/lib/purchase";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { pageTitle } from "@/lib/seo";
 
 const FALLBACK_COVER = "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop";
 const TICKET_FETCH_DELAY_MS = 1500;
@@ -43,6 +45,12 @@ function PurchaseSkeleton() {
 }
 
 export default function PurchaseSuccess() {
+  usePageMeta({
+    title: pageTitle("Compra Confirmada"),
+    description: "Sua compra no EasyTicket foi concluída. Acesse seus ingressos digitais.",
+    noindex: true,
+  });
+
   const [searchParams] = useSearchParams();
   const params = useMemo(() => readPurchaseParams(searchParams), [searchParams]);
   const { eventId: paramEventId, orderId, paymentId, qrCode: qrCodeFromUrl } = params;

@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useScannerAudio } from "@/hooks/useScannerAudio";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { pageTitle } from "@/lib/seo";
 
 type ScanResult = {
   status: "valid" | "used" | "invalid";
@@ -16,6 +18,12 @@ type ScanResult = {
 } | null;
 
 export default function Validator() {
+  usePageMeta({
+    title: pageTitle("Validador de Ingressos"),
+    description: "Validação de ingressos na portaria do evento.",
+    noindex: true,
+  });
+
   const navigate = useNavigate();
   const { user, loading, rolesLoaded, isAdmin, isValidator, signOut } = useAuth();
   const allowed = isAdmin || isValidator || user?.email === "lribeiro@easyticket.com";

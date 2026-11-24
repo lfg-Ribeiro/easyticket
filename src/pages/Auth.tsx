@@ -21,10 +21,17 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { pageTitle } from "@/lib/seo";
 
 type AuthField = "fullName" | "cpf" | "phone" | "email" | "password";
 
 export default function Auth() {
+  usePageMeta({
+    title: pageTitle("Entrar ou Criar Conta"),
+    description: "Entre ou crie sua conta no EasyTicket para comprar ingressos, acessar seus QR Codes e acompanhar seus eventos.",
+  });
+
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");

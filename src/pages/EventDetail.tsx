@@ -18,6 +18,8 @@ import { EventDetailSkeleton } from "@/components/events/EventDetailSkeleton";
 import { MobilePurchaseBar } from "@/components/events/MobilePurchaseBar";
 import { toast } from "@/hooks/use-toast";
 import { captureReferralFromUrl } from "@/lib/referral";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { EVENT_FALLBACK_COVER, buildEventMeta } from "@/lib/seo";
 
 export default function EventDetail() {
   const { id } = useParams();
@@ -26,6 +28,9 @@ export default function EventDetail() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Título, descrição e imagem de compartilhamento do evento assim que ele carrega
+  usePageMeta(buildEventMeta({ id, loading, event }));
 
   // Guarda ?ref= (ou ?utm_source=) por 7 dias, para sobreviver a um login/cadastro em /auth
   useEffect(() => {
@@ -83,9 +88,7 @@ export default function EventDetail() {
           time: data.event_time,
           location: data.location,
           venue: data.venue,
-          image:
-            data.cover_image_url ||
-            "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&h=500&fit=crop",
+          image: data.cover_image_url || EVENT_FALLBACK_COVER,
           price: activeBatch ? Number(activeBatch.price) : 0,
           category: data.category,
           availableTickets: activeBatch

@@ -3,10 +3,18 @@ import { Link, useLocation } from "react-router-dom";
 import { Compass, Home, Ticket } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { pageTitle } from "@/lib/seo";
 
 const MAX_PATH_LENGTH = 60;
 
 const NotFound = () => {
+  usePageMeta({
+    title: pageTitle("Página não encontrada"),
+    description: "O link que você acessou pode ter expirado ou o evento não está mais disponível.",
+    noindex: true,
+  });
+
   const location = useLocation();
 
   useEffect(() => {

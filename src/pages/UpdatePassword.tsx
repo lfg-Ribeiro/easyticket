@@ -6,8 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { pageTitle } from "@/lib/seo";
 
 export default function UpdatePassword() {
+  usePageMeta({
+    title: pageTitle("Redefinir Senha"),
+    description: "Defina uma nova senha para a sua conta no EasyTicket.",
+    noindex: true,
+  });
+
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

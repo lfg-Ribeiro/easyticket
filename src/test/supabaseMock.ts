@@ -91,6 +91,17 @@ export function createSupabaseMock(state: MockState) {
       in: () => api,
       order: () => api,
       limit: () => api,
+      // filtros extras que algumas telas usam; aqui não restringem o resultado
+      gt: () => api,
+      gte: () => api,
+      lt: () => api,
+      lte: () => api,
+      neq: () => api,
+      like: () => api,
+      ilike: () => api,
+      or: () => api,
+      not: () => api,
+      range: () => api,
       maybeSingle: async () => {
         const result = run();
         return { data: result.data[0] ?? null, error: result.error };

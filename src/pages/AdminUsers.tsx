@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { pageTitle } from "@/lib/seo";
 
 type Role = "admin" | "organizer" | "validator" | "user";
 interface AdminUser { id: string; email: string; roles: string[]; event_ids: string[] }
@@ -20,6 +22,12 @@ const ROLE_LABEL: Record<string, string> = { admin: "Admin", organizer: "Produto
 const needsEvents = (r: Role) => r === "organizer" || r === "validator";
 
 export default function AdminUsers() {
+  usePageMeta({
+    title: pageTitle("Gestão de Acessos"),
+    description: "Gerencie os acessos de organizadores e validadores do EasyTicket.",
+    noindex: true,
+  });
+
   const navigate = useNavigate();
   const { user, loading, rolesLoaded, isAdmin } = useAuth();
   const allowed = isAdmin || user?.email === "lribeiro@easyticket.com";

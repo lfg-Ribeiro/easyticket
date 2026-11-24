@@ -2,8 +2,15 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, QrCode, BarChart3, Zap, ArrowRight, MessageCircle } from "lucide-react";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { pageTitle } from "@/lib/seo";
 
 export default function SaibaMais() {
+  usePageMeta({
+    title: pageTitle("Venda Ingressos Online"),
+    description: "Conheça o EasyTicket para produtores e atléticas: venda ingressos online, controle a entrada por QR Code e acompanhe as vendas em tempo real.",
+  });
+
   return (
     <MainLayout>
       <div className="container max-w-5xl py-10 space-y-16">

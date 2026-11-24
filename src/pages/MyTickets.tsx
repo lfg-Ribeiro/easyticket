@@ -7,8 +7,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { Ticket as TicketType } from "@/types/event";
 import { MyTicketsSkeleton } from "@/components/tickets/TicketCardSkeleton";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { pageTitle } from "@/lib/seo";
 
 export default function MyTickets() {
+  usePageMeta({
+    title: pageTitle("Meus Ingressos"),
+    description: "Acesse seus ingressos digitais e QR Codes do EasyTicket.",
+    noindex: true,
+  });
+
   const { user, loading: authLoading } = useAuth();
   const [tickets, setTickets] = useState<TicketType[]>([]);
   const [loading, setLoading] = useState(true);

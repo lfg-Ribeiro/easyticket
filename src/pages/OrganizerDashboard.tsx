@@ -27,6 +27,8 @@ import {
   EventListSkeleton,
   MetricCardsSkeleton,
 } from "@/components/organizer/OrganizerSkeletons";
+import { usePageMeta } from "@/hooks/usePageMeta";
+import { pageTitle } from "@/lib/seo";
 
 interface DBEvent {
   id: string;
@@ -46,6 +48,12 @@ interface EventStats {
 }
 
 export default function OrganizerDashboard() {
+  usePageMeta({
+    title: pageTitle("Painel do Organizador"),
+    description: "Acompanhe vendas, participantes, cortesias e comissionados dos seus eventos no EasyTicket.",
+    noindex: true,
+  });
+
   const navigate = useNavigate();
   const { user, session, canManageEvents } = useAuth();
   const [seeding, setSeeding] = useState(false);
