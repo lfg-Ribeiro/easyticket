@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendMetaPurchase } from "../_shared/metaCapi.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -207,6 +208,9 @@ serve(async (req) => {
         console.error("❌ Email error:", emailErr);
       }
     }
+
+    // Meta CAPI Purchase (isolated; never blocks the 200 OK)
+    await sendMetaPurchase(supabaseAdmin, order.id);
 
     return new Response(JSON.stringify({ received: true, order_id: order.id, status: "confirmed" }), {
       status: 200,

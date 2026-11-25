@@ -49,6 +49,32 @@ export type Database = {
           },
         ]
       }
+      event_meta_secrets: {
+        Row: {
+          capi_token: string | null
+          event_id: string
+          updated_at: string
+        }
+        Insert: {
+          capi_token?: string | null
+          event_id: string
+          updated_at?: string
+        }
+        Update: {
+          capi_token?: string | null
+          event_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_meta_secrets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_organizers: {
         Row: {
           created_at: string
@@ -91,6 +117,7 @@ export type Database = {
           fee_absorbed: boolean
           id: string
           location: string
+          meta_pixel_id: string | null
           organizer_id: string
           published: boolean
           show_remaining_tickets: boolean
@@ -110,6 +137,7 @@ export type Database = {
           fee_absorbed?: boolean
           id?: string
           location: string
+          meta_pixel_id?: string | null
           organizer_id: string
           published?: boolean
           show_remaining_tickets?: boolean
@@ -129,6 +157,7 @@ export type Database = {
           fee_absorbed?: boolean
           id?: string
           location?: string
+          meta_pixel_id?: string | null
           organizer_id?: string
           published?: boolean
           show_remaining_tickets?: boolean
@@ -143,9 +172,15 @@ export type Database = {
           buyer_cpf: string | null
           buyer_email: string
           buyer_name: string
+          buyer_phone: string | null
+          client_ip: string | null
+          client_user_agent: string | null
           created_at: string
           event_id: string
           id: string
+          meta_fbc: string | null
+          meta_fbp: string | null
+          meta_purchase_sent_at: string | null
           payment_method: string
           payment_status: string
           platform_fee: number
@@ -160,9 +195,15 @@ export type Database = {
           buyer_cpf?: string | null
           buyer_email: string
           buyer_name: string
+          buyer_phone?: string | null
+          client_ip?: string | null
+          client_user_agent?: string | null
           created_at?: string
           event_id: string
           id?: string
+          meta_fbc?: string | null
+          meta_fbp?: string | null
+          meta_purchase_sent_at?: string | null
           payment_method?: string
           payment_status?: string
           platform_fee?: number
@@ -177,9 +218,15 @@ export type Database = {
           buyer_cpf?: string | null
           buyer_email?: string
           buyer_name?: string
+          buyer_phone?: string | null
+          client_ip?: string | null
+          client_user_agent?: string | null
           created_at?: string
           event_id?: string
           id?: string
+          meta_fbc?: string | null
+          meta_fbp?: string | null
+          meta_purchase_sent_at?: string | null
           payment_method?: string
           payment_status?: string
           platform_fee?: number

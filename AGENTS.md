@@ -6,3 +6,4 @@
 - Keep the frontend flag and the server-side checks (RLS policies, Edge Functions) in agreement when either changes, so a visible link is never a dead end.
 - In Gestão de Acessos an account holds at most one staff role (admin/organizer/validator) on top of the base `user` role; choosing "Cliente" removes staff roles and event links. Why: keeps `admin-users` the single writer of roles and avoids leftover panel access.
 - Paid-but-expired PIX orders are recovered in `asaas-webhook` (re-issues tickets, re-consumes stock); every PIX must send `order_id` as Asaas `externalReference`. Why: the 15-min cleanup deletes tickets of unlinked orders even after payment.
+- Meta CAPI tokens live only in the admin-only `event_meta_secrets` table (read by Edge Functions via service role); `events.meta_pixel_id` is public. Purchase is sent only from `_shared/metaCapi.ts`, deduped by `orders.meta_purchase_sent_at`. Why: the token must never reach public event queries.

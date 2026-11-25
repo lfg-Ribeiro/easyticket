@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendMetaPurchase } from "../_shared/metaCapi.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -212,6 +213,7 @@ serve(async (req) => {
 
       if (isConfirmed) {
         emailResult = await sendConfirmationEmail(supabaseAdmin, order_id, isNewUser, isNewUser ? tempPassword : null);
+        await sendMetaPurchase(supabaseAdmin, order_id);
       }
     }
 

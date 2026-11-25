@@ -25,6 +25,9 @@ import {
   type EventField,
 } from "@/lib/validation";
 import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/hooks/useAuth";
+import { MetaTrackingFields, type MetaTrackingValue } from "@/components/organizer/MetaTrackingFields";
+import { loadMetaTracking, saveMetaTracking } from "@/lib/metaTracking";
 import {
   Select,
   SelectContent,
@@ -123,6 +126,10 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [batches, setBatches] = useState<BatchRow[]>([]);
   const [removedBatchIds, setRemovedBatchIds] = useState<string[]>([]);
+  const { isAdmin, isMasterAdmin } = useAuth();
+  const canEditTracking = isAdmin || isMasterAdmin;
+  const [metaTracking, setMetaTracking] = useState<MetaTrackingValue>({ pixelId: "", capiToken: "" });
+  const [metaLoading, setMetaLoading] = useState(false);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -154,6 +161,13 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
     setCoverFile(null);
     setCoverPreview(null);
     setRemovedBatchIds([]);
+
+    if (canEditTracking) {
+      setMetaLoading(true);
+      loadMetaTracking(eventId)
+        .then(setMetaTracking)
+        .finally(() => setMetaLoading(false));
+    }
 
     const [{ data: ev, error }, { data: bs }] = await Promise.all([
       supabase.from("events").select("*").eq("id", eventId).maybeSingle(),
@@ -199,7 +213,7 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
       }))
     );
     setLoading(false);
-  }, [eventId, clearErrors]);
+  }, [eventId, clearErrors, canEditTracking]);
 
   useEffect(() => {
     if (open && eventId) load();
@@ -341,6 +355,14 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
       if (evError) {
         toast({ title: "Erro ao salvar evento", description: evError.message, variant: "destructive" });
         return;
+      }
+
+      if (canEditTracking) {
+        try {
+          await saveMetaTracking(eventId, metaTracking);
+        } catch (err: any) {
+          toast({ title: "Rastreamento Meta não salvo", description: err?.message, variant: "destructive" });
+        }
       }
 
       if (removedBatchIds.length > 0) {
@@ -618,6 +640,10 @@ export function EditEventForm({ eventId, open, onOpenChange, onSaved }: EditEven
                   aria-label="Exibir quantidade de ingressos restantes"
                 />
               </div>
+
+              {canEditTracking && (
+                <MetaTrackingFields value={metaTracking} onChange={setMetaTracking} loading={metaLoading} />
+              )}
 
               {/* Batches */}
               <div className="space-y-3">

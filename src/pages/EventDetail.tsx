@@ -18,6 +18,7 @@ import { EventDetailSkeleton } from "@/components/events/EventDetailSkeleton";
 import { MobilePurchaseBar } from "@/components/events/MobilePurchaseBar";
 import { toast } from "@/hooks/use-toast";
 import { captureReferralFromUrl } from "@/lib/referral";
+import { initMetaPixel, trackMetaEvent } from "@/lib/metaPixel";
 import { usePageMeta } from "@/hooks/usePageMeta";
 import { EVENT_FALLBACK_COVER, buildEventMeta } from "@/lib/seo";
 
@@ -56,7 +57,7 @@ export default function EventDetail() {
         .select(
           `
           id, title, description, event_date, event_time,
-          location, venue, cover_image_url, category, fee_absorbed, show_remaining_tickets,
+          location, venue, cover_image_url, category, fee_absorbed, show_remaining_tickets, meta_pixel_id,
           ticket_batches (id, name, price, available_quantity, status, is_active, sort_order)
         `,
         )
@@ -98,6 +99,7 @@ export default function EventDetail() {
           activeBatchId: activeBatch?.id,
           activeBatchName: activeBatch?.name,
           showRemainingTickets: !!data.show_remaining_tickets,
+          metaPixelId: (data as any).meta_pixel_id || null,
         });
       }
       setLoading(false);
@@ -105,6 +107,18 @@ export default function EventDetail() {
 
     fetchEvent();
   }, [id]);
+
+  useEffect(() => {
+    if (!event || !initMetaPixel(event.metaPixelId)) return;
+    trackMetaEvent("PageView");
+    trackMetaEvent("ViewContent", {
+      content_name: event.title,
+      content_ids: [event.id],
+      content_type: "product",
+      value: event.price,
+      currency: "BRL",
+    });
+  }, [event?.id, event?.metaPixelId]);
 
   if (loading) {
     return (
