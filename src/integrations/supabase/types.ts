@@ -388,22 +388,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_batch: { Args: { p_batch_id: string }; Returns: Json }
       attach_order_referral: {
         Args: { p_order_id: string; p_referred_by: string }
         Returns: boolean
       }
-      get_affiliate_name: {
-        Args: { p_event_id: string; p_ref_code: string }
-        Returns: string
-      }
-      activate_batch: { Args: { p_batch_id: string }; Returns: Json }
       can_issue_courtesy: { Args: { _event_id: string }; Returns: boolean }
+      can_manage_event_affiliates: {
+        Args: { _event_id: string }
+        Returns: boolean
+      }
       cleanup_expired_orders: { Args: never; Returns: Json }
       consume_batch_tickets: {
         Args: { p_batch_id: string; p_quantity: number }
         Returns: Json
       }
       generate_ticket_qr: { Args: { p_index?: number }; Returns: string }
+      get_affiliate_name: {
+        Args: { p_event_id: string; p_ref_code: string }
+        Returns: string
+      }
       get_sales_by_day: {
         Args: { end_date: string; start_date: string }
         Returns: {
