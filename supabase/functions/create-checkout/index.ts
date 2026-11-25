@@ -21,7 +21,9 @@ serve(async (req) => {
   }
 
   try {
-    const { event_id, batch_id, buyer_name, buyer_email, buyer_cpf, buyer_phone, quantity, payment_method } = await req.json();
+    const { event_id, batch_id, buyer_name, buyer_email, buyer_cpf, buyer_phone, quantity, payment_method, meta_fbp, meta_fbc } = await req.json();
+    const clientIp = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || null;
+    const clientUa = req.headers.get("user-agent") || null;
 
     if (!event_id || !buyer_name || !buyer_email || !quantity) {
       return new Response(
@@ -168,6 +170,11 @@ serve(async (req) => {
         buyer_name,
         buyer_email,
         buyer_cpf: buyer_cpf || null,
+        buyer_phone: buyer_phone || null,
+        meta_fbp: typeof meta_fbp === "string" ? meta_fbp.slice(0, 200) : null,
+        meta_fbc: typeof meta_fbc === "string" ? meta_fbc.slice(0, 300) : null,
+        client_ip: clientIp,
+        client_user_agent: clientUa ? clientUa.slice(0, 500) : null,
         quantity,
         subtotal,
         service_fee: serviceFee,

@@ -14,6 +14,7 @@ export interface Event {
   activeBatchId?: string;
   activeBatchName?: string;
   showRemainingTickets?: boolean;
+  metaPixelId?: string | null;
 }
 
 export interface Ticket {

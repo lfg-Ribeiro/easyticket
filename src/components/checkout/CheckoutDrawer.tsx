@@ -35,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCountdown } from "@/hooks/useCountdown";
 import type { Event } from "@/types/event";
 import { isPaymentConfirmed } from "@/lib/payment-status";
+import { getMetaBrowserIds, trackMetaEvent } from "@/lib/metaPixel";
 
 interface CheckoutDrawerProps {
   event: Event;
@@ -124,8 +125,16 @@ export function CheckoutDrawer({ event, open, onOpenChange }: CheckoutDrawerProp
   };
 
   const createCheckout = async () => {
+    trackMetaEvent("InitiateCheckout", {
+      content_ids: [event.id],
+      content_type: "product",
+      num_items: quantity,
+      value: total,
+      currency: "BRL",
+    });
     const { data, error } = await supabase.functions.invoke("create-checkout", {
       body: {
+        ...getMetaBrowserIds(),
         event_id: event.id,
         batch_id: event.activeBatchId,
         buyer_name: formData.name,

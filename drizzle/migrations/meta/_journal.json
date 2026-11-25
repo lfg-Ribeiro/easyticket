@@ -29,6 +29,13 @@
       "when": 1794350834467,
       "tag": "0003_add_show_remaining_tickets_to_events",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795639220547,
+      "tag": "0004_meta_ads_tracking",
+      "breakpoints": true
     }
   ]
 }

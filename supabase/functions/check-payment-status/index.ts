@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendMetaPurchase } from "../_shared/metaCapi.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,6 +78,8 @@ serve(async (req) => {
       } else {
         console.log(`✅ Order ${order_id} updated to confirmed`);
       }
+
+      await sendMetaPurchase(supabaseAdmin, order_id);
 
       // Fetch order + event data for email
       const { data: order } = await supabaseAdmin

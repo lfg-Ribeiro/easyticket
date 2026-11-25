@@ -40,6 +40,8 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { MetaTrackingFields, type MetaTrackingValue } from "@/components/organizer/MetaTrackingFields";
+import { saveMetaTracking } from "@/lib/metaTracking";
 
 const EVENT_CATEGORIES = [
   "Festa Universitária",
@@ -73,7 +75,9 @@ const steps = [
 ];
 
 export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEventFormProps) {
-  const { user } = useAuth();
+  const { user, isAdmin, isMasterAdmin } = useAuth();
+  const canEditTracking = isAdmin || isMasterAdmin;
+  const [metaTracking, setMetaTracking] = useState<MetaTrackingValue>({ pixelId: "", capiToken: "" });
   const [currentStep, setCurrentStep] = useState(1);
   const [feeAbsorbed, setFeeAbsorbed] = useState(false);
   const [showRemaining, setShowRemaining] = useState(false);
@@ -264,6 +268,14 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
         console.error("Event error:", eventError);
         toast({ title: "Erro ao criar evento", description: eventError.message, variant: "destructive" });
         return;
+      }
+
+      if (canEditTracking && (metaTracking.pixelId || metaTracking.capiToken)) {
+        try {
+          await saveMetaTracking(event.id, metaTracking);
+        } catch (err: any) {
+          toast({ title: "Rastreamento Meta não salvo", description: err?.message, variant: "destructive" });
+        }
       }
 
       // Create ticket batches
@@ -668,6 +680,8 @@ export function CreateEventForm({ open, onOpenChange, onEventCreated }: CreateEv
                 <Switch checked={showRemaining} onCheckedChange={setShowRemaining} />
               </div>
             </div>
+
+            {canEditTracking && <MetaTrackingFields value={metaTracking} onChange={setMetaTracking} />}
 
             {/* Example Preview */}
             <div className="bg-primary/5 rounded-xl p-5 border border-primary/10">
