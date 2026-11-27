@@ -13,7 +13,7 @@ const TESTIMONIALS: Testimonial[] = [
     eventType: "Organizador — Dami's Room",
     rating: 5,
     text: "Colocar o Dami's Room no EasyTicket foi sensacional. O painel me deu controle total das vendas em tempo real e a portaria funcionou perfeitamente, sem nenhuma dor de cabeça.",
-  }, 
+  }, */
   {
     name: "Gilmar Junior",
     eventType: "Comprador — Pul Pári da Ursanos",
@@ -25,7 +25,7 @@ const TESTIMONIALS: Testimonial[] = [
     eventType: "Comprador — Pul Pári da Ursanos",
     rating: 5,
     text: "Plataforma excelente! Sem burocracia, comprei o ingresso para o evento de casa e entrei na portaria só mostrando o celular. Recomendo demais!",
-  }, */
+  }, 
 ]; 
 
 const getInitials = (name: string) =>
